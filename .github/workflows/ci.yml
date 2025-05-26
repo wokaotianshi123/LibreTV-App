@@ -115,6 +115,12 @@ jobs:
       - name: Initialize Tauri Android project
         run: npx tauri android init # Generate Android project files
 
+      - name: Check for Android project directory
+        run: |
+          echo "Checking for Android project directory..."
+          ls -la src-tauri/gen || echo "src-tauri/gen directory not found"
+          ls -la src-tauri/gen/android || echo "src-tauri/gen/android directory not found"
+
       - name: Decode Android Keystore and Set Path (for signed CI builds)
         env:
           _SIGNING_KEY_EXISTS: ${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' }}
