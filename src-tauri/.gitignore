@@ -1,0 +1,7 @@
+# Ignore the Rust build output directory
+/target
+/gen
+
+# IDE-specific files (optional, but good practice)
+/.idea/
+/.vscode/
