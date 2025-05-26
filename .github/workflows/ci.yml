@@ -103,7 +103,8 @@ jobs:
         with:
           # sdk-version is deprecated, use packages. build-tools is also part of packages.
           # ndk-version is an unexpected input, specify NDK via packages.
-          packages: "platform-tools;latest platforms;android-34 build-tools;34.0.0 cmdline-tools;latest ndk;25.2.9519653"
+          # For platform-tools and cmdline-tools, sdkmanager usually fetches the latest if no version is specified.
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0 cmdline-tools ndk;25.2.9519653"
 
       # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
       # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
