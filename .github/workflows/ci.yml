@@ -99,7 +99,7 @@ jobs:
           java-version: '17' # JDK 17 is often recommended for modern Android development
 
       - name: Setup Android SDK and NDK
-        uses: nicedoc.io/setup-android-sdk@v1.1.2 # Using a specific version tag
+        uses: android-actions/setup-android@v3 # Using a specific version tag
         with:
           sdk-version: '34' # Specify Android SDK API level
           ndk-version: '25.2.9519653' # Specify NDK version, same as before
