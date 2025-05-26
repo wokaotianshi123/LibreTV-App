@@ -69,7 +69,7 @@ jobs:
 
   build_tauri_android_ci:
     name: Build Tauri Android App (CI)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Changed from ubuntu-latest to ubuntu-22.04
     env:
       # If you want signed CI builds, uncomment and ensure secrets are available.
       # Otherwise, unsigned builds will be produced.
