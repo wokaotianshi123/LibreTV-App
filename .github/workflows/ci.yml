@@ -101,10 +101,9 @@ jobs:
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3
         with:
-          # sdk-version: '34' # sdk-version is deprecated, use packages instead
-          ndk-version: '25.2.9519653'
-          # build-tools-version: '34.0.0' # build-tools is also part of packages
-          packages: "platform-tools,platforms;android-34,build-tools;34.0.0,cmdline-tools;latest"
+          # sdk-version is deprecated, use packages. build-tools is also part of packages.
+          # ndk-version is an unexpected input, specify NDK via packages.
+          packages: "platform-tools;latest platforms;android-34 build-tools;34.0.0 cmdline-tools;latest ndk;25.2.9519653"
 
       # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
       # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
