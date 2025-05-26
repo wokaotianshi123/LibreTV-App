@@ -100,7 +100,7 @@ jobs:
         run: npm install
 
       - name: Decode Android Keystore and Set Path (for signed CI builds)
-        if: secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' && (secrets.ANDROID_KEYSTORE_PASSWORD != '' || env.TAURI_ANDROID_KEYSTORE_PASSWORD != '')
+        if: ${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' && (secrets.ANDROID_KEYSTORE_PASSWORD != '' || env.TAURI_ANDROID_KEYSTORE_PASSWORD != '') }}
         run: |
           echo "Decoding Keystore for CI (if secrets are present)..."
           echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore_ci.jks
