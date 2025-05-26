@@ -1,0 +1,123 @@
+name: CI Build for Main Branch & PRs
+
+on:
+  push:
+    branches:
+      - main
+      - master  # Adjust if your default branch has a different name
+  pull_request:
+    branches:
+      - main
+      - master  # Adjust if your default branch has a different name
+
+jobs:
+  build_tauri_desktop_ci:
+    name: Build Tauri Desktop Apps (CI)
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Using Node.js 18, adjust if needed
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable # Using stable Rust
+
+      - name: Install Linux dependencies (GTK, WebKit, AppIndicator, rsvg)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm install # Using npm as per your package.json
+
+      # Optional: Add steps for linting or running tests if you have them
+      # - name: Run Linter
+      #   run: npm run lint # Replace with your lint script
+      # - name: Run Tests
+      #   run: npm run test # Replace with your test script
+
+      - name: Build Tauri application (unsigned)
+        # Uses 'npx tauri build' which should pick up the devDependency
+        run: npx tauri build
+
+      - name: Upload Desktop Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibreTV-App-${{ matrix.platform }}-${{ github.run_id }}
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app # For .app, you might want to compress it first e.g., .app.tar.gz
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe # If using NSIS bundler for .exe installer
+            src-tauri/target/release/*.AppImage # Some Linux builds might place AppImage directly in release
+            src-tauri/target/release/*.deb      # Some Linux builds might place .deb directly in release
+          if-no-files-found: ignore # Changed to 'ignore' for robustness
+
+  build_tauri_android_ci:
+    name: Build Tauri Android App (CI)
+    runs-on: ubuntu-latest
+    env:
+      # If you want signed CI builds, uncomment and ensure secrets are available.
+      # Otherwise, unsigned builds will be produced.
+      # TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      # TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      # TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # TAURI_ANDROID_KEYSTORE_PATH will be set dynamically if keystore secret is present
+      NODE_OPTIONS: --max-old-space-size=8192 # Increase Node.js memory limit if needed for large projects
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
+      # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
+      # However, Tauri's internal setup might suffice for basic builds.
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Decode Android Keystore and Set Path (for signed CI builds)
+        if: secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' && (secrets.ANDROID_KEYSTORE_PASSWORD != '' || env.TAURI_ANDROID_KEYSTORE_PASSWORD != '')
+        run: |
+          echo "Decoding Keystore for CI (if secrets are present)..."
+          echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore_ci.jks
+          echo "TAURI_ANDROID_KEYSTORE_PATH=${{ github.workspace }}/release_keystore_ci.jks" >> $GITHUB_ENV
+          echo "CI Keystore decoded and TAURI_ANDROID_KEYSTORE_PATH set."
+
+      - name: Build Tauri Android application (CI)
+        # This will produce an unsigned release APK/AAB by default if signing env vars are not fully set.
+        # If signing env vars are set (from secrets), it will attempt a signed build.
+        run: npx tauri android build
+
+      - name: Upload Android Artifacts (CI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibreTV-App-Android-${{ github.run_id }}
+          path: |
+            src-tauri/target/android-artifacts/release/apk/*.apk
+            src-tauri/target/android-artifacts/release/aab/*.aab
+            # Adjust paths if your Tauri version/config outputs to a different location for Android
+          if-no-files-found: ignore
