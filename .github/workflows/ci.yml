@@ -114,6 +114,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Ensure gen directory exists and has permissions
+        run: |
+          mkdir -p src-tauri/gen
+          sudo chown -R $(whoami) src-tauri/gen || echo "chown failed, continuing..."
+          ls -ld src-tauri/gen
+
       - name: Initialize Tauri Android project
         run: npx tauri android init -v # Generate Android project files with verbose logging
 
