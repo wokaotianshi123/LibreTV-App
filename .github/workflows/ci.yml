@@ -99,6 +99,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Initialize Tauri Android project
+        run: npx tauri android init # Generate Android project files
+
       - name: Decode Android Keystore and Set Path (for signed CI builds)
         env:
           _SIGNING_KEY_EXISTS: ${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' }}
