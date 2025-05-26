@@ -99,11 +99,12 @@ jobs:
           java-version: '17' # JDK 17 is often recommended for modern Android development
 
       - name: Setup Android SDK and NDK
-        uses: android-actions/setup-android@v3 # Using a specific version tag
+        uses: android-actions/setup-android@v3
         with:
-          sdk-version: '34' # Specify Android SDK API level
-          ndk-version: '25.2.9519653' # Specify NDK version, same as before
-          # build-tools-version: '34.0.0' # Optionally specify build-tools version
+          # sdk-version: '34' # sdk-version is deprecated, use packages instead
+          ndk-version: '25.2.9519653'
+          # build-tools-version: '34.0.0' # build-tools is also part of packages
+          packages: "platform-tools,platforms;android-34,build-tools;34.0.0,cmdline-tools;latest"
 
       # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
       # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
@@ -113,7 +114,7 @@ jobs:
         run: npm install
 
       - name: Initialize Tauri Android project
-        run: npx tauri android init # Generate Android project files
+        run: npx tauri android init -v # Generate Android project files with verbose logging
 
       - name: Check for Android project directory
         run: |
