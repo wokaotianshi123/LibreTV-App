@@ -107,29 +107,76 @@ jobs:
           # For cmdline-tools, 'latest' specifier seems to be common.
           packages: "platform-tools platforms;android-34 build-tools;34.0.0 cmdline-tools;latest ndk;25.2.9519653"
 
+      - name: Verify Android Environment Variables
+        run: |
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "NDK_HOME: $NDK_HOME"
+          if [ -z "$NDK_HOME" ]; then
+            echo "Error: NDK_HOME is not set."
+            # Attempt to find NDK path if not set, common location with setup-android
+            POSSIBLE_NDK_HOME="$ANDROID_HOME/ndk-bundle" # Common default
+            ALTERNATIVE_NDK_HOME_PATTERN="$ANDROID_HOME/ndk/*" # setup-android might install it in a versioned subfolder
+            
+            echo "Looking for NDK in $ANDROID_HOME/ndk/..."
+            ls -d $ANDROID_HOME/ndk/*/ | head -n 1
+            
+            FOUND_NDK_PATH=$(ls -d $ANDROID_HOME/ndk/*/ | head -n 1)
+            if [ -d "$FOUND_NDK_PATH" ]; then
+              echo "Found NDK at $FOUND_NDK_PATH. Setting NDK_HOME."
+              echo "NDK_HOME=$FOUND_NDK_PATH" >> $GITHUB_ENV
+              export NDK_HOME=$FOUND_NDK_PATH # Export for current step
+              echo "Updated NDK_HOME: $NDK_HOME"
+            elif [ -d "$POSSIBLE_NDK_HOME" ]; then
+              echo "Found NDK at $POSSIBLE_NDK_HOME. Setting NDK_HOME."
+              echo "NDK_HOME=$POSSIBLE_NDK_HOME" >> $GITHUB_ENV
+              export NDK_HOME=$POSSIBLE_NDK_HOME # Export for current step
+              echo "Updated NDK_HOME: $NDK_HOME"
+            else
+              echo "NDK not found in common locations."
+              # exit 1 # Optionally fail the build here
+            fi
+          fi
+          # Also ensure NDK path is added to PATH for tools like ndk-build if needed by tauri internally
+          if [ -n "$NDK_HOME" ] && [ -d "$NDK_HOME" ]; then
+            echo "Adding NDK_HOME to PATH: $NDK_HOME"
+            echo "$NDK_HOME" >> $GITHUB_PATH
+          fi
+
       # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
       # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
       # However, Tauri's internal setup might suffice for basic builds.
 
       - name: Install frontend dependencies
-        run: npm install
+        run: |
+          npm install
+          echo "Ensuring @tauri-apps/api is installed..."
+          npm list @tauri-apps/api || npm install @tauri-apps/api --save-dev
 
       - name: Display Tauri environment information
         run: npx tauri info
 
-      - name: Ensure gen directory exists
+      - name: Clean and Ensure gen directory exists
         run: |
+          echo "Attempting to remove existing src-tauri/gen directory if it exists..."
+          rm -rf src-tauri/gen || echo "Failed to remove src-tauri/gen, or it didn't exist. Continuing..."
+          echo "Creating src-tauri/gen directory..."
           mkdir -p src-tauri/gen
+          echo "Listing permissions for src-tauri/gen:"
           ls -ld src-tauri/gen
+          echo "Listing contents of src-tauri:"
+          ls -la src-tauri
 
       - name: Initialize Tauri Android project
         run: npx tauri android init -v # Generate Android project files with verbose logging
 
-      - name: Check for Android project directory
+      - name: Check for Android project directory and src-tauri contents
         run: |
-          echo "Checking for Android project directory..."
-          ls -la src-tauri/gen || echo "src-tauri/gen directory not found"
-          ls -la src-tauri/gen/android || echo "src-tauri/gen/android directory not found"
+          echo "--- Checking src-tauri/gen directory ---"
+          ls -la src-tauri/gen || echo "src-tauri/gen directory not found or ls failed"
+          echo "--- Checking src-tauri/gen/android directory ---"
+          ls -la src-tauri/gen/android || echo "src-tauri/gen/android directory not found or ls failed"
+          echo "--- Full listing of src-tauri after init ---"
+          ls -Rla src-tauri || echo "Failed to list src-tauri recursively"
 
       - name: Decode Android Keystore and Set Path (for signed CI builds)
         env:
