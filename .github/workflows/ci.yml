@@ -100,7 +100,7 @@ jobs:
 
       - name: Setup Android NDK
         id: setup-ndk # Give it an id to potentially reference outputs if needed
-        uses: ewam/setup-ndk@v1
+        uses: ewam/setup-ndk@v1.0.10 # Using a specific version tag
         with:
           ndk-version: "25.2.9519653" # Using a common NDK version, adjust if needed
           # add-to-path: true # Default is true, ensures NDK tools are in PATH
