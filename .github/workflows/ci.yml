@@ -98,13 +98,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17' # JDK 17 is often recommended for modern Android development
 
-      - name: Setup Android NDK
-        id: setup-ndk # Give it an id to potentially reference outputs if needed
-        uses: ewam/setup-ndk@v1.0.10 # Using a specific version tag
+      - name: Setup Android SDK and NDK
+        uses: nicedoc.io/setup-android-sdk@v1
         with:
-          ndk-version: "25.2.9519653" # Using a common NDK version, adjust if needed
-          # add-to-path: true # Default is true, ensures NDK tools are in PATH
-          # set-environment: true # Default is true, ensures NDK_HOME etc. are set
+          sdk-version: '34' # Specify Android SDK API level
+          ndk-version: '25.2.9519653' # Specify NDK version, same as before
+          # build-tools-version: '34.0.0' # Optionally specify build-tools version
 
       # Android build dependencies (Java, SDK, NDK) are often handled by Tauri's build scripts or need to be set up.
       # For a more robust setup, consider actions/setup-java and potentially android-actions/setup-android.
