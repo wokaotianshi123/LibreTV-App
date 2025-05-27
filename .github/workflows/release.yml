@@ -117,10 +117,10 @@ jobs:
       # If issues arise, specific setup steps for Java (actions/setup-java) and Android SDK
       # (e.g., android-actions/setup-android or manual installation) might be needed.
 
-      - name: Install Android build dependencies (glib, gtk, pkg-config)
+      - name: Install Android build dependencies (glib, gtk, pkg-config, libsoup)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libgtk-3-dev pkg-config
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev pkg-config libsoup2.4-dev
 
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
