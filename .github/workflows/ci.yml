@@ -209,7 +209,7 @@ jobs:
           path: |
             src-tauri/target/android-artifacts/release/apk/*.apk
             src-tauri/target/android-artifacts/release/aab/*.aab
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   create_release:
     name: Create GitHub Release
