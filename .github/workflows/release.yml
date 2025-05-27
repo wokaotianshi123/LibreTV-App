@@ -196,5 +196,5 @@ jobs:
           releaseId: ${{ needs.create_release.outputs.release_id }}
           projectPath: '.'
           tauriScript: 'tauri android' # Use 'tauri android build' for this job
-          # args: '' # Ensure no conflicting args are passed to 'tauri android build'
+          args: '-v' # Add verbose flag to get more detailed output
           # This ensures only Android targets are built, avoiding desktop bundling issues.
