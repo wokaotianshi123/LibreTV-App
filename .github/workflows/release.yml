@@ -53,11 +53,33 @@ jobs:
 
       # Install Linux dependencies
       # macOS and Windows dependencies are usually handled by Tauri/system or pre-installed on runners
-      - name: Install Linux dependencies (GTK, WebKit, AppIndicator, rsvg, FUSE, GStreamer, etc.)
+      - name: Install Linux dependencies (GTK, WebKit, AppIndicator, rsvg, FUSE, GStreamer, packaging tools, etc.)
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 desktop-file-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            librsvg2-bin \
+            patchelf \
+            libfuse2 \
+            desktop-file-utils \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav \
+            libgdk-pixbuf2.0-bin \
+            squashfs-tools \
+            file \
+            xdg-utils \
+            appstream-util \
+            ca-certificates \
+            curl \
+            wget \
+            libssl-dev
 
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
@@ -117,18 +139,14 @@ jobs:
       # If issues arise, specific setup steps for Java (actions/setup-java) and Android SDK
       # (e.g., android-actions/setup-android or manual installation) might be needed.
 
-      - name: Install Android build dependencies (glib, gtk, pkg-config, libsoup, javascriptcore, webkit2gtk)
+      - name: Install Android build dependencies (glib, gtk, pkg-config, libsoup, javascriptcore)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libgtk-3-dev pkg-config libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev
+          # Note: libwebkit2gtk-4.1-dev removed as it's likely only needed for desktop builds.
+          # If Android build itself fails due to this, it might indicate a more complex issue.
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev pkg-config libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
-      - name: Set PKG_CONFIG_PATH
-        run: |
-          # Add the common path for .pc files on Ubuntu to PKG_CONFIG_PATH
-          # This helps pkg-config find the newly installed libraries.
-          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH}"
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH is now set to: $PKG_CONFIG_PATH"
+      # PKG_CONFIG_PATH setup removed as it was related to libwebkit2gtk-4.1-dev
 
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
@@ -160,7 +178,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseId: ${{ needs.create_release.outputs.release_id }}
           projectPath: '.'
-          # tauri-action should automatically build Android targets (apk,โซ aab)
-          # if they are configured in your tauri.conf.json and the environment is set up for signing.
-          # No specific 'args' needed here for Android if tauri.conf.json is correctly set up for Android build.
-          # It will build all configured targets.
+          args: '--bundles apk,aab' # Explicitly build only apk and aab for Android job
+          # This should prevent attempts to build desktop bundles (deb, rpm, AppImage)
+          # and thus avoid issues with webkit2gtk and linuxdeploy in this Android-specific job.
