@@ -186,11 +186,7 @@ jobs:
           ls -Rla src-tauri || echo "Failed to list src-tauri recursively"
 
       - name: Decode Android Keystore and Set Path (for signed CI builds)
-        env:
-          _SIGNING_KEY_EXISTS: ${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' }}
-          _KEYSTORE_PASSWORD_EXISTS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
-          _ENV_TAURI_PASSWORD_EXISTS: ${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD != '' }}
-        if: env._SIGNING_KEY_EXISTS && (env._KEYSTORE_PASSWORD_EXISTS || env._ENV_TAURI_PASSWORD_EXISTS)
+        if: secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' && (secrets.ANDROID_KEYSTORE_PASSWORD != '' || env.TAURI_ANDROID_KEYSTORE_PASSWORD != '')
         run: |
           echo "Decoding Keystore for CI (if secrets are present)..."
           echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore_ci.jks
