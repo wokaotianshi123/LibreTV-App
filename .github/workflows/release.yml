@@ -173,9 +173,6 @@ jobs:
         run: npm install # Or yarn install, or pnpm install
 
       - name: Decode Android Keystore and Set Path
-        # This step is crucial: it decodes the base64 secret into a .jks file
-        # and sets the TAURI_ANDROID_KEYSTORE_PATH environment variable for subsequent steps.
-        # Ensure ANDROID_SIGNING_KEY_JKS_BASE64 secret is set and non-empty.
         run: |
           if [ -n "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" ]; then
             echo "ANDROID_SIGNING_KEY_JKS_BASE64 secret is present. Decoding Keystore..."
@@ -184,9 +181,8 @@ jobs:
             echo "TAURI_ANDROID_KEYSTORE_PATH=${{ github.workspace }}/release_keystore.jks" >> $GITHUB_ENV
             echo "TAURI_ANDROID_KEYSTORE_PATH is set to ${{ github.workspace }}/release_keystore.jks"
           else
-            echo "ANDROID_SIGNING_KEY_JKS_BASE64 secret is not set or empty. Skipping keystore decoding."
-            # Optionally, you might want to fail the job here if the keystore is mandatory for this workflow
-            # exit 1 
+            echo "ANDROID_SIGNING_KEY_JKS_BASE64 secret is not set or empty. Failing the job."
+            exit 1
           fi
 
       - name: Build Tauri Android application
