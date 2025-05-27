@@ -39,7 +39,7 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
 
       - name: Install frontend dependencies
         run: npm install # Using npm as per your package.json
@@ -113,6 +113,11 @@ jobs:
           # For platform-tools, sdkmanager usually fetches the latest if no version is specified.
           # For cmdline-tools, 'latest' specifier seems to be common.
           packages: "platform-tools platforms;android-34 build-tools;34.0.0 cmdline-tools;latest ndk;25.2.9519653"
+
+      - name: Install Linux dependencies for Android build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev pkg-config
 
       - name: Verify Android Environment Variables
         run: |
