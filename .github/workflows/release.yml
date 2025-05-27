@@ -29,6 +29,8 @@ jobs:
   build_tauri_desktop:
     name: Build Tauri Desktop Apps
     needs: create_release
+    permissions:
+      contents: write # Required to upload assets to the release
     strategy:
       fail-fast: false
       matrix:
@@ -86,6 +88,8 @@ jobs:
   build_tauri_android_release:
     name: Build Tauri Android App (Release)
     needs: create_release
+    permissions:
+      contents: write # Required to upload assets to the release
     runs-on: ubuntu-latest # Android builds are typically done on Linux runners
 
     env:
