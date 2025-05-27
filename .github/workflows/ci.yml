@@ -208,8 +208,8 @@ jobs:
         with:
           name: LibreTV-App-Android # Simplified name
           path: |
-            src-tauri/target/android-artifacts/release/apk/*.apk
-            src-tauri/target/android-artifacts/release/aab/*.aab
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
           if-no-files-found: error
 
   create_release:
