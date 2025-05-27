@@ -39,7 +39,7 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
 
       - name: Install frontend dependencies
         run: npm install # Using npm as per your package.json
@@ -118,6 +118,37 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev pkg-config
+
+      - name: Set PKG_CONFIG_PATH for Android build
+        run: |
+          # Common paths where .pc files are installed
+          PC_PATH_1="/usr/lib/x86_64-linux-gnu/pkgconfig"
+          PC_PATH_2="/usr/share/pkgconfig"
+          PC_PATH_3="/usr/lib/pkgconfig"
+          
+          # Construct new PKG_CONFIG_PATH, prepending our paths
+          NEW_PKG_CONFIG_PATH=""
+          if [ -d "$PC_PATH_1" ]; then NEW_PKG_CONFIG_PATH="$PC_PATH_1"; fi
+          if [ -d "$PC_PATH_2" ]; then
+            if [ -n "$NEW_PKG_CONFIG_PATH" ]; then NEW_PKG_CONFIG_PATH="$NEW_PKG_CONFIG_PATH:$PC_PATH_2"; else NEW_PKG_CONFIG_PATH="$PC_PATH_2"; fi
+          fi
+          if [ -d "$PC_PATH_3" ]; then
+            if [ -n "$NEW_PKG_CONFIG_PATH" ]; then NEW_PKG_CONFIG_PATH="$NEW_PKG_CONFIG_PATH:$PC_PATH_3"; else NEW_PKG_CONFIG_PATH="$PC_PATH_3"; fi
+          fi
+          
+          if [ -n "$PKG_CONFIG_PATH" ]; then
+            if [ -n "$NEW_PKG_CONFIG_PATH" ]; then NEW_PKG_CONFIG_PATH="$NEW_PKG_CONFIG_PATH:$PKG_CONFIG_PATH"; else NEW_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"; fi
+          fi
+          
+          echo "PKG_CONFIG_PATH=$NEW_PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "Attempting to set PKG_CONFIG_PATH to: $NEW_PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$NEW_PKG_CONFIG_PATH" # Export for current and subsequent steps in this job
+          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          # Verify glib-2.0 can be found now
+          echo "Verifying glib-2.0 with new PKG_CONFIG_PATH..."
+          pkg-config --modversion glib-2.0 || echo "WARNING: glib-2.0 still not found by pkg-config after setting PKG_CONFIG_PATH"
+        env:
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
 
       - name: Verify Android Environment Variables
         run: |
