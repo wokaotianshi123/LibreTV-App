@@ -135,6 +135,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin' # A popular distribution
+
       # tauri-action and tauri-cli's android build process typically handles Java/Android SDK setup.
       # If issues arise, specific setup steps for Java (actions/setup-java) and Android SDK
       # (e.g., android-actions/setup-android or manual installation) might be needed.
