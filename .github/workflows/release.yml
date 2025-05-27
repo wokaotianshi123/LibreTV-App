@@ -178,6 +178,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseId: ${{ needs.create_release.outputs.release_id }}
           projectPath: '.'
-          args: '--bundles apk,aab' # Explicitly build only apk and aab for Android job
-          # This should prevent attempts to build desktop bundles (deb, rpm, AppImage)
-          # and thus avoid issues with webkit2gtk and linuxdeploy in this Android-specific job.
+          tauriScript: 'tauri android' # Use 'tauri android build' for this job
+          # args: '' # Ensure no conflicting args are passed to 'tauri android build'
+          # This ensures only Android targets are built, avoiding desktop bundling issues.
