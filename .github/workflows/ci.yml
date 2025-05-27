@@ -186,12 +186,17 @@ jobs:
           ls -Rla src-tauri || echo "Failed to list src-tauri recursively"
 
       - name: Decode Android Keystore and Set Path (for signed CI builds)
-        if: secrets.ANDROID_SIGNING_KEY_JKS_BASE64 != '' && (secrets.ANDROID_KEYSTORE_PASSWORD != '' || env.TAURI_ANDROID_KEYSTORE_PASSWORD != '')
         run: |
-          echo "Decoding Keystore for CI (if secrets are present)..."
-          echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore_ci.jks
-          echo "TAURI_ANDROID_KEYSTORE_PATH=${{ github.workspace }}/release_keystore_ci.jks" >> $GITHUB_ENV
-          echo "CI Keystore decoded and TAURI_ANDROID_KEYSTORE_PATH set."
+          if [ -n "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" ] && \
+             ( [ -n "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || \
+               [ -n "${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }}" ] ); then
+            echo "Condition met: Decoding Keystore for CI..."
+            echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore_ci.jks
+            echo "TAURI_ANDROID_KEYSTORE_PATH=${{ github.workspace }}/release_keystore_ci.jks" >> $GITHUB_ENV
+            echo "CI Keystore decoded and TAURI_ANDROID_KEYSTORE_PATH set."
+          else
+            echo "Condition not met: Skipping keystore decoding. Required secrets or env vars might not be set."
+          fi
 
       - name: Build Tauri Android application (CI)
         # This will produce an unsigned release APK/AAB by default if signing env vars are not fully set.
