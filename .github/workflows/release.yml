@@ -197,5 +197,4 @@ jobs:
           projectPath: '.'
           tauriScript: 'tauri android' # Use 'tauri android build' for this job
           args: '-v' # Add verbose flag to get more detailed output from Tauri CLI
-          debug: true # Enable debug logging for the tauri-action itself
           # This ensures only Android targets are built, avoiding desktop bundling issues.
