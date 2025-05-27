@@ -141,6 +141,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin' # A popular distribution
 
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          ndk-version: '25.2.9519653' # NDK r25c, often compatible with Tauri
+          # This action will also set up a default Android SDK platform and build-tools.
+          # It sets ANDROID_HOME and ANDROID_NDK_HOME environment variables.
+
       # tauri-action and tauri-cli's android build process typically handles Java/Android SDK setup.
       # If issues arise, specific setup steps for Java (actions/setup-java) and Android SDK
       # (e.g., android-actions/setup-android or manual installation) might be needed.
