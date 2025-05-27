@@ -151,7 +151,8 @@ jobs:
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v3
         with:
-          ndk-version: '25.2.9519653' # NDK r25c, often compatible with Tauri
+          # To install a specific NDK version, include it in the packages list
+          packages: 'ndk;25.2.9519653 platform-tools' # NDK r25c and platform-tools
           # This action will also set up a default Android SDK platform and build-tools.
           # It sets ANDROID_HOME and ANDROID_NDK_HOME environment variables.
 
