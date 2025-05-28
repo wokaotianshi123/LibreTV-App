@@ -172,18 +172,31 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
-      - name: Initialize Tauri Android project
-        run: npx tauri android init -v
-
-      - name: Check for Android project directory
+      - name: Initialize Tauri Android project and Check
         run: |
-          echo "Checking if src-tauri/gen/android exists..."
-          ls -la src-tauri/gen/
-          if [ -d "src-tauri/gen/android" ]; then
-            echo "src-tauri/gen/android directory exists. Listing contents:"
-            ls -la src-tauri/gen/android
+          echo "Current directory listing (before init):"
+          ls -la
+          echo "Listing src-tauri/ (before init):"
+          ls -la src-tauri/ || echo "src-tauri directory not found before init"
+          
+          echo "Running npx tauri android init -v ..."
+          npx tauri android init -v
+          
+          echo "Listing src-tauri/ (after init):"
+          ls -la src-tauri/ || echo "src-tauri directory not found after init"
+          
+          echo "Checking for src-tauri/gen/ and src-tauri/gen/android/ (after init):"
+          if [ -d "src-tauri/gen" ]; then
+            echo "src-tauri/gen/ directory exists. Listing contents:"
+            ls -la src-tauri/gen/
+            if [ -d "src-tauri/gen/android" ]; then
+              echo "src-tauri/gen/android directory exists. Listing contents:"
+              ls -la src-tauri/gen/android/
+            else
+              echo "src-tauri/gen/android directory DOES NOT exist after init (but src-tauri/gen does)."
+            fi
           else
-            echo "src-tauri/gen/android directory DOES NOT exist after init."
+            echo "src-tauri/gen/ directory DOES NOT exist after init."
           fi
 
       - name: Decode Android Keystore and Set Path
