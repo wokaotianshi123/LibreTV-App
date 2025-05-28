@@ -240,25 +240,44 @@ jobs:
             exit 1
           fi
 
-      - name: Build Tauri Android application
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }} # Explicitly pass ANDROID_NDK_HOME
-          NDK_HOME: ${{ env.NDK_HOME }}                 # Explicitly pass NDK_HOME
-          # TAURI_ANDROID_KEYSTORE_PATH is set from the previous step via $GITHUB_ENV
-          # Other TAURI_ANDROID_... variables are set from the job-level env block
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseId: ${{ needs.create_release.outputs.release_id }}
-          projectPath: '.'
-          tauriScript: 'tauri android' # Use 'tauri android build' for this job
-          args: '-v' # Add verbose flag to get more detailed output from Tauri CLI
-          # This ensures only Android targets are built, avoiding desktop bundling issues.
-
-      # - name: Build Tauri Android application (Direct Command) # Temporarily disabled, tauri-action should handle build and upload
-      #   run: npx tauri android build -v
+      # - name: Build Tauri Android application (Using tauri-action) # Disabled due to NDK_HOME issues with the action
+      #   uses: tauri-apps/tauri-action@v0
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     # Keystore env vars are set at job level or by previous step
-      #     # Ensure all necessary TAURI_ANDROID_... vars are available
+      #     ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+      #     NDK_HOME: ${{ env.NDK_HOME }}
+      #     # TAURI_ANDROID_KEYSTORE_PATH is set from the previous step via $GITHUB_ENV
+      #     # Other TAURI_ANDROID_... variables are set from the job-level env block
+      #   with:
+      #     tagName: ${{ github.ref_name }}
+      #     releaseId: ${{ needs.create_release.outputs.release_id }}
+      #     projectPath: '.'
+      #     tauriScript: 'tauri android'
+      #     args: '-v'
+
+      - name: Build Tauri Android application (Direct Command)
+        run: npx tauri android build -v
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NDK_HOME should be globally available from "Set NDK_HOME globally" step
+          # Keystore env vars are set at job level or by previous step
+
+      - name: Upload Android APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+          asset_name: libretv-${{ github.ref_name }}-android-universal-unsigned.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Android AAB to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+          asset_name: libretv-${{ github.ref_name }}-android-universal.aab
+          asset_content_type: application/octet-stream
