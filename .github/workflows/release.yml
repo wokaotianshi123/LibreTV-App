@@ -244,6 +244,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }} # Explicitly pass ANDROID_NDK_HOME
+          NDK_HOME: ${{ env.NDK_HOME }}                 # Explicitly pass NDK_HOME
           # TAURI_ANDROID_KEYSTORE_PATH is set from the previous step via $GITHUB_ENV
           # Other TAURI_ANDROID_... variables are set from the job-level env block
         with:
