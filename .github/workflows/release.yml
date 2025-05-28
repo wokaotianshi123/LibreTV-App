@@ -301,7 +301,7 @@ jobs:
       #     args: '-v'
 
       - name: Build Tauri Android application (Direct Command)
-        run: npx tauri android build --release # Ensure it's a release build, -v for verbose
+        run: npx tauri android build -v # -v for verbose output
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
