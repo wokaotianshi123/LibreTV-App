@@ -301,111 +301,112 @@ jobs:
       #     args: '-v'
 
       - name: Build Tauri Android application (Direct Command)
-        run: npx tauri android build -v # -v for verbose output
+        run: npx tauri android build -v # -v for verbose output, should produce an AAB
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
-      - name: Check Android build output directory structure
-        if: always() # Run even if previous step failed, to see partial output
+      - name: Check AAB output and set path
+        id: check_aab
         run: |
-          echo "Listing contents of src-tauri/gen/android/app/build/outputs/ ..."
-          ls -R src-tauri/gen/android/app/build/outputs/ || echo "src-tauri/gen/android/app/build/outputs/ directory not found or ls failed."
-          echo "Listing contents of src-tauri/gen/android/app/build/ ..."
-          ls -R src-tauri/gen/android/app/build/ || echo "src-tauri/gen/android/app/build/ directory not found or ls failed."
-          echo "Listing contents of src-tauri/gen/android/app/ ..."
-          ls -R src-tauri/gen/android/app/ || echo "src-tauri/gen/android/app/ directory not found or ls failed."
-          echo "Checking for custom build.gradle in generated project..."
-          if [ -f "src-tauri/gen/android/app/build.gradle" ]; then
-            echo "src-tauri/gen/android/app/build.gradle exists. Displaying first few lines and our custom markers:"
-            head -n 20 src-tauri/gen/android/app/build.gradle
-            echo "---"
-            grep "Custom build.gradle" src-tauri/gen/android/app/build.gradle || echo "Custom markers not found in src-tauri/gen/android/app/build.gradle"
-          else
-            echo "src-tauri/gen/android/app/build.gradle NOT FOUND."
-          fi
-          echo "Checking for settings.gradle in generated project..."
-          if [ -f "src-tauri/gen/android/settings.gradle" ]; then
-            echo "src-tauri/gen/android/settings.gradle exists. Displaying content:"
-            cat src-tauri/gen/android/settings.gradle
-          else
-            echo "src-tauri/gen/android/settings.gradle NOT FOUND."
-          fi
-          echo "Checking for gradle.properties in generated project..."
-          if [ -f "src-tauri/gen/android/gradle.properties" ]; then
-            echo "src-tauri/gen/android/gradle.properties exists. Displaying content:"
-            cat src-tauri/gen/android/gradle.properties
-          else
-            echo "src-tauri/gen/android/gradle.properties NOT FOUND."
-          fi
+          AAB_DIR="src-tauri/gen/android/app/build/outputs/bundle"
+          # AAB filename might vary slightly (e.g., app-release.aab, app-universal-release.aab)
+          # We'll search for the AAB file in the expected directory.
+          # Common pattern is 'app-release.aab' or 'app-universal-release.aab'
+          # The original workflow used 'app-universal-release.aab'
+          AAB_CANDIDATE_1="$AAB_DIR/universalRelease/app-universal-release.aab"
+          AAB_CANDIDATE_2="$AAB_DIR/release/app-release.aab" # Another common path/name
 
+          if [ -f "$AAB_CANDIDATE_1" ]; then
+            AAB_PATH="$AAB_CANDIDATE_1"
+          elif [ -f "$AAB_CANDIDATE_2" ]; then
+            AAB_PATH="$AAB_CANDIDATE_2"
+          else
+            echo "Error: AAB file NOT found at expected locations."
+            echo "Searched for: $AAB_CANDIDATE_1"
+            echo "Searched for: $AAB_CANDIDATE_2"
+            echo "Listing contents of $AAB_DIR and its subdirectories..."
+            ls -R "$AAB_DIR" || echo "Bundle directory $AAB_DIR not found."
+            exit 1
+          fi
+          
+          echo "AAB file found at $AAB_PATH"
+          echo "::set-output name=aab_file_path::$AAB_PATH"
+          ls -l "$AAB_PATH"
 
-      - name: List generated APKs
+      - name: Download bundletool
         run: |
-          echo "Listing APKs in src-tauri/gen/android/app/build/outputs/apk/release/ ..."
-          ls -R src-tauri/gen/android/app/build/outputs/apk/release/
-          echo "Listing AABs (should be none or not uploaded) in src-tauri/gen/android/app/build/outputs/bundle/release/ ..."
-          ls -R src-tauri/gen/android/app/build/outputs/bundle/universalRelease/ || echo "Universal release bundle directory not found, as expected."
-          ls -R src-tauri/gen/android/app/build/outputs/bundle/release/ || echo "Release bundle directory not found or empty, as expected if AAB generation is disabled by splits."
+          BTOOL_VERSION="1.15.6" # Specify bundletool version
+          wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
+          java -jar bundletool.jar version # Verify download and tool
 
+      - name: Build APKs from AAB using bundletool
+        id: build_apks
+        run: |
+          java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
+            --output=app_bundle.apks \
+            --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
+            --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
+            --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
+            --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
+            # Default mode generates split APKs. No --mode=universal needed.
+          echo "app_bundle.apks generated."
+          ls -l app_bundle.apks
 
-      - name: Upload Split Android APKs to Release
+      - name: Create directory for extracted APKs and extract them
+        run: |
+          mkdir -p extracted_apks
+          unzip -o app_bundle.apks -d extracted_apks
+          # APKs are typically in 'extracted_apks/splits/' or 'extracted_apks/standalones/'
+          # The exact name might be 'base-armeabi_v7a.apk' or 'standalone-armeabi_v7a.apk' etc.
+          echo "Contents of extracted_apks:"
+          ls -R extracted_apks/
+          # The following lines help identify the exact paths for the upload steps
+          echo "Looking for APKs in extracted_apks/splits/ or extracted_apks/standalones/"
+          find extracted_apks \( -path "*/splits/*.apk" -o -path "*/standalones/*.apk" \) -print
+
+      - name: Upload armeabi-v7a APK (from bundletool)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          # The path needs to be a single file or a glob pattern that matches files.
-          # upload-release-asset action might only support one file per use.
-          # A common pattern is to loop or use another action for multiple files.
-          # For simplicity, let's try uploading them one by one if globbing isn't directly supported for asset_path in this action.
-          # However, a better approach is to use a script to find all APKs and upload them.
-          # Let's assume for now we will list them and then decide on upload strategy.
-          # For now, we will try to upload all APKs from the release directory.
-          # The action might support glob patterns for asset_path. If not, this will need adjustment.
-          # Let's try a more robust approach by finding files and uploading them individually or packaging them.
-
-      - name: Upload armeabi-v7a APK
-        if: success() # Only run if build was successful
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+          # Path needs to be confirmed from the 'find' command output above.
+          # Assuming 'splits/base-armeabi_v7a.apk' or 'standalones/standalone-armeabi_v7a.apk'
+          # Let's try to find it dynamically or use a common pattern.
+          # This might require a more robust way to get the exact path.
+          # For now, we'll assume a common pattern. If this fails, the find output will guide.
+          asset_path: $(find extracted_apks -name "*-armeabi_v7a.apk" -print -quit)
           asset_name: libretv-${{ github.ref_name }}-android-armeabi-v7a.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload arm64-v8a APK
-        if: success()
+      - name: Upload arm64-v8a APK (from bundletool)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          asset_path: $(find extracted_apks -name "*-arm64_v8a.apk" -print -quit)
           asset_name: libretv-${{ github.ref_name }}-android-arm64-v8a.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload x86 APK
-        if: success()
+      - name: Upload x86 APK (from bundletool)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/release/app-x86-release.apk
+          asset_path: $(find extracted_apks -name "*-x86.apk" -not -name "*-x86_64.apk" -print -quit)
           asset_name: libretv-${{ github.ref_name }}-android-x86.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload x86_64 APK
-        if: success()
+      - name: Upload x86_64 APK (from bundletool)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/release/app-x86_64-release.apk
+          asset_path: $(find extracted_apks -name "*-x86_64.apk" -print -quit)
           asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
           asset_content_type: application/vnd.android.package-archive
