@@ -1,0 +1,113 @@
+// src-tauri/mobile/android/app/build.gradle
+plugins {
+    id 'com.android.application'
+    // If your project uses Kotlin, ensure 'kotlin-android' is included.
+    // Tauri might add this automatically if it detects Kotlin usage.
+    // id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    // Ensure these SDK versions are compatible with your Tauri setup and Android NDK/SDK versions in CI.
+    // The versions used in the GitHub Actions workflow are:
+    // JDK 17, NDK 25.2.9519653
+    // It's common for Tauri to use a compileSdk like 33 or 34.
+    compileSdkVersion 34
+    buildToolsVersion "34.0.0" // Optional, but can help ensure consistency
+
+    defaultConfig {
+        applicationId "com.libretv.app" // Matches tauri.conf.json
+        minSdkVersion 24             // Matches tauri.conf.json
+        targetSdkVersion 34          // Keep consistent with compileSdkVersion
+        versionCode 1                // Will be overridden by tauri build if configured
+        versionName "0.1.0"          // Will be overridden by tauri build if configured
+        // ndk.abiFilters is not needed here if we are using splits for separate APKs
+    }
+
+    signingConfigs {
+        release {
+            if (System.getenv("TAURI_ANDROID_KEYSTORE_PATH") != null &&
+                System.getenv("TAURI_ANDROID_KEYSTORE_PASSWORD") != null &&
+                System.getenv("TAURI_ANDROID_KEY_ALIAS") != null &&
+                System.getenv("TAURI_ANDROID_KEY_PASSWORD") != null) {
+                
+                storeFile file(System.getenv("TAURI_ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("TAURI_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("TAURI_ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("TAURI_ANDROID_KEY_PASSWORD")
+            } else {
+                println "Warning: Android signing environment variables not fully set. Release APKs might be unsigned or build might fail."
+                // You might want to make the build fail explicitly if signing info is missing for a release
+                // throw new GradleException("Android signing configuration is missing for release build.")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false // Set to true if you want to enable R8/ProGuard
+            // proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            // Ensure Proguard/R8 rules are correctly configured if minifyEnabled is true,
+            // especially for Tauri's Rust JNI bindings.
+        }
+        debug {
+            // applicationVariants.all { variant ->
+            //     if (variant.buildType.name == "debug") {
+            //         variant.resValue "string", "app_name", "libretv (Debug)"
+            //     }
+            // }
+        }
+    }
+
+    // Configure ABI splits to generate separate APKs for different architectures
+    splits {
+        abi {
+            enable true // Enable ABI splitting
+            reset()     // Remove any default ABI filters that might be set elsewhere
+            include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' // Specify desired ABIs
+            universalApk false // Do not generate a universal APK alongside split APKs.
+                               // If you need one, set this to true. The user request implies separate APKs are preferred.
+        }
+    }
+    
+    // Tauri's build process injects its own dependencies and configurations.
+    // This custom build.gradle should be respected by Tauri.
+    // If Tauri uses a specific structure (e.g. for applying its own plugins or configurations),
+    // this file might need adjustments. For example, Tauri might expect to apply its
+    // configurations in a `afterEvaluate` block or similar.
+
+    // If namespace is not automatically set by AGP version used by Tauri.
+    // Modern AGP versions require namespace to be set.
+    if (project.android.hasProperty("namespace")) {
+        android.namespace = "com.libretv.app"
+    }
+
+    packagingOptions {
+        // Exclude common problematic files from JNI libs if necessary
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/LICENSE.md'
+            excludes += 'META-INF/NOTICE.md'
+        }
+    }
+}
+
+dependencies {
+    // Tauri's build system will automatically add the necessary dependencies for the Rust core.
+    // Do not manually add Tauri-specific dependencies here unless you know what you are doing.
+    // You can add other standard Android dependencies if your app needs them.
+    // e.g., implementation 'androidx.core:core-ktx:1.12.0'
+    //       implementation 'androidx.appcompat:appcompat:1.6.1'
+}
+
+// If Tauri generates Kotlin files or you add Kotlin code:
+// tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+//     kotlinOptions {
+//         jvmTarget = "1.8" // Or a higher version like "11" or "17" if compatible
+//     }
+// }
+
+// Ensure that the tauri.conf.json `identifier` is used for the applicationId
+// and that version information is correctly propagated. Tauri usually handles this.
+// The `android init` command in the CI pipeline should prepare the project structure
+// that this build.gradle file will then configure.
