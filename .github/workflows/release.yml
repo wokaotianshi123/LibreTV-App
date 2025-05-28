@@ -307,6 +307,40 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
+      - name: Check Android build output directory structure
+        if: always() # Run even if previous step failed, to see partial output
+        run: |
+          echo "Listing contents of src-tauri/gen/android/app/build/outputs/ ..."
+          ls -R src-tauri/gen/android/app/build/outputs/ || echo "src-tauri/gen/android/app/build/outputs/ directory not found or ls failed."
+          echo "Listing contents of src-tauri/gen/android/app/build/ ..."
+          ls -R src-tauri/gen/android/app/build/ || echo "src-tauri/gen/android/app/build/ directory not found or ls failed."
+          echo "Listing contents of src-tauri/gen/android/app/ ..."
+          ls -R src-tauri/gen/android/app/ || echo "src-tauri/gen/android/app/ directory not found or ls failed."
+          echo "Checking for custom build.gradle in generated project..."
+          if [ -f "src-tauri/gen/android/app/build.gradle" ]; then
+            echo "src-tauri/gen/android/app/build.gradle exists. Displaying first few lines and our custom markers:"
+            head -n 20 src-tauri/gen/android/app/build.gradle
+            echo "---"
+            grep "Custom build.gradle" src-tauri/gen/android/app/build.gradle || echo "Custom markers not found in src-tauri/gen/android/app/build.gradle"
+          else
+            echo "src-tauri/gen/android/app/build.gradle NOT FOUND."
+          fi
+          echo "Checking for settings.gradle in generated project..."
+          if [ -f "src-tauri/gen/android/settings.gradle" ]; then
+            echo "src-tauri/gen/android/settings.gradle exists. Displaying content:"
+            cat src-tauri/gen/android/settings.gradle
+          else
+            echo "src-tauri/gen/android/settings.gradle NOT FOUND."
+          fi
+          echo "Checking for gradle.properties in generated project..."
+          if [ -f "src-tauri/gen/android/gradle.properties" ]; then
+            echo "src-tauri/gen/android/gradle.properties exists. Displaying content:"
+            cat src-tauri/gen/android/gradle.properties
+          else
+            echo "src-tauri/gen/android/gradle.properties NOT FOUND."
+          fi
+
+
       - name: List generated APKs
         run: |
           echo "Listing APKs in src-tauri/gen/android/app/build/outputs/apk/release/ ..."

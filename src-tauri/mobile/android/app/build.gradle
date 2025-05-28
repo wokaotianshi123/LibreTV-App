@@ -100,6 +100,8 @@ dependencies {
     //       implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
+println "Custom build.gradle: Loaded and parsed."
+
 // If Tauri generates Kotlin files or you add Kotlin code:
 // tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 //     kotlinOptions {
@@ -109,5 +111,7 @@ dependencies {
 
 // Ensure that the tauri.conf.json `identifier` is used for the applicationId
 // and that version information is correctly propagated. Tauri usually handles this.
-// The `android init` command in the CI pipeline should prepare the project structure
-// that this build.gradle file will then configure.
+    // The `android init` command in the CI pipeline should prepare the project structure
+    // that this build.gradle file will then configure.
+
+    println "Custom build.gradle: android block configured."
