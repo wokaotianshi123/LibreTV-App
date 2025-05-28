@@ -41,6 +41,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Update version in tauri.conf.json and Cargo.toml
+        run: |
+          # Extract version from tag (e.g., v1.0.44 -> 1.0.44)
+          APP_VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          echo "Using App Version: $APP_VERSION"
+          
+          # Update tauri.conf.json
+          # Using jq for robust JSON manipulation if available, otherwise sed
+          if command -v jq &> /dev/null
+          then
+            jq ".version = \"$APP_VERSION\"" src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+            echo "Updated version in src-tauri/tauri.conf.json to $APP_VERSION using jq"
+          else
+            # Fallback to sed if jq is not available (less robust for complex JSON)
+            sed -i.bak "s/\"version\": \".*\"/\"version\": \"$APP_VERSION\"/" src-tauri/tauri.conf.json
+            echo "Updated version in src-tauri/tauri.conf.json to $APP_VERSION using sed (check for .bak file if issues)"
+          fi
+          
+          # Update Cargo.toml
+          # Using sed for TOML as it's simpler for this specific change
+          sed -i.bak "s/^version = \".*\"/version = \"$APP_VERSION\"/" src-tauri/Cargo.toml
+          echo "Updated version in src-tauri/Cargo.toml to $APP_VERSION using sed (check for .bak file if issues)"
+        shell: bash
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
@@ -124,6 +148,27 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Update version in tauri.conf.json and Cargo.toml
+        run: |
+          # Extract version from tag (e.g., v1.0.44 -> 1.0.44)
+          APP_VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          echo "Using App Version: $APP_VERSION"
+          
+          # Update tauri.conf.json
+          if command -v jq &> /dev/null
+          then
+            jq ".version = \"$APP_VERSION\"" src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+            echo "Updated version in src-tauri/tauri.conf.json to $APP_VERSION using jq"
+          else
+            sed -i.bak "s/\"version\": \".*\"/\"version\": \"$APP_VERSION\"/" src-tauri/tauri.conf.json
+            echo "Updated version in src-tauri/tauri.conf.json to $APP_VERSION using sed (check for .bak file if issues)"
+          fi
+          
+          # Update Cargo.toml
+          sed -i.bak "s/^version = \".*\"/version = \"$APP_VERSION\"/" src-tauri/Cargo.toml
+          echo "Updated version in src-tauri/Cargo.toml to $APP_VERSION using sed (check for .bak file if issues)"
+        shell: bash
 
       - name: Install Node.js
         uses: actions/setup-node@v4
