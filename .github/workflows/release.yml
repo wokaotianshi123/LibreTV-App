@@ -185,16 +185,23 @@ jobs:
             exit 1
           fi
 
-      - name: Build Tauri Android application
-        uses: tauri-apps/tauri-action@v0
+      # - name: Build Tauri Android application (Using tauri-action) # Temporarily disabled for direct command testing
+      #   uses: tauri-apps/tauri-action@v0
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     # TAURI_ANDROID_KEYSTORE_PATH is set from the previous step via $GITHUB_ENV
+      #     # Other TAURI_ANDROID_... variables are set from the job-level env block
+      #   with:
+      #     tagName: ${{ github.ref_name }}
+      #     releaseId: ${{ needs.create_release.outputs.release_id }}
+      #     projectPath: '.'
+      #     tauriScript: 'tauri android' # Use 'tauri android build' for this job
+      #     args: '-v' # Add verbose flag to get more detailed output from Tauri CLI
+      #     # This ensures only Android targets are built, avoiding desktop bundling issues.
+
+      - name: Build Tauri Android application (Direct Command)
+        run: npx tauri android build -v
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TAURI_ANDROID_KEYSTORE_PATH is set from the previous step via $GITHUB_ENV
-          # Other TAURI_ANDROID_... variables are set from the job-level env block
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseId: ${{ needs.create_release.outputs.release_id }}
-          projectPath: '.'
-          tauriScript: 'tauri android' # Use 'tauri android build' for this job
-          args: '-v' # Add verbose flag to get more detailed output from Tauri CLI
-          # This ensures only Android targets are built, avoiding desktop bundling issues.
+          # Keystore env vars are set at job level or by previous step
+          # Ensure all necessary TAURI_ANDROID_... vars are available
