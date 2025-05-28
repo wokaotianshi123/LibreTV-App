@@ -172,6 +172,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
+      - name: Initialize Tauri Android project
+        run: npx tauri android init
+
       - name: Decode Android Keystore and Set Path
         run: |
           if [ -n "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" ]; then
