@@ -363,8 +363,8 @@ jobs:
           ls -R extracted_apks/
           
           echo "Locating APK files..."
-          APK_ARMEABI_V7A=$(find extracted_apks -iname "*-armeabi-v7a*.apk" -print -quit)
-          APK_ARM64_V8A=$(find extracted_apks -iname "*-arm64-v8a*.apk" -print -quit)
+          APK_ARMEABI_V7A=$(find extracted_apks -iname "*-armeabi_v7a*.apk" -print -quit)
+          APK_ARM64_V8A=$(find extracted_apks -iname "*-arm64_v8a*.apk" -print -quit)
           # For x86, ensure we don't accidentally pick x86_64 if x86 is a substring
           APK_X86=$(find extracted_apks -iname "*-x86.apk" -print -quit) 
           if [[ "$APK_X86" == *"-x86_64.apk"* ]]; then # If plain x86 also matches x86_64, try more specific
