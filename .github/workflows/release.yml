@@ -179,14 +179,18 @@ jobs:
           echo "Listing src-tauri/ (before init):"
           ls -la src-tauri/ || echo "src-tauri directory not found before init"
           
-          echo "Attempting to create src-tauri/gen/android directory structure manually..."
-          mkdir -p src-tauri/gen/android
-          echo "Listing src-tauri/gen/ (after manual mkdir):"
-          ls -la src-tauri/gen/ || echo "src-tauri/gen still not found after mkdir"
-          ls -la src-tauri/gen/android/ || echo "src-tauri/gen/android still not found after mkdir"
-
-          echo "Running npm run tauri -- android init -v ..."
-          npm run tauri -- android init -v
+          echo "Deleting existing src-tauri/gen/android directory if it exists..."
+          rm -rf src-tauri/gen/android
+          
+          echo "Attempting to create src-tauri/gen/android parent directory structure manually..."
+          mkdir -p src-tauri/gen/android # Ensure parent 'gen' exists, init should create 'android'
+          echo "Listing src-tauri/gen/ (after manual mkdir and potential rm):"
+          ls -la src-tauri/gen/ || echo "src-tauri/gen still not found"
+          
+          echo "Running npm run tauri -- android init -vvv (all output to stdout)..."
+          npm run tauri -- android init -vvv 2>&1
+          INIT_EXIT_CODE=$?
+          echo "tauri android init command finished with exit code: $INIT_EXIT_CODE"
           
           echo "Listing src-tauri/ (after init):"
           ls -la src-tauri/ || echo "src-tauri directory not found after init"
@@ -196,13 +200,20 @@ jobs:
             echo "src-tauri/gen/ directory exists. Listing contents:"
             ls -la src-tauri/gen/
             if [ -d "src-tauri/gen/android" ]; then
-              echo "src-tauri/gen/android directory exists. Listing contents:"
-              ls -la src-tauri/gen/android/
+              echo "src-tauri/gen/android directory exists. Recursively listing all subdirectories and their contents:"
+              find src-tauri/gen/android -ls
+              echo "Attempting to list src-tauri/gen/android/app/src/main/java/ specifically:"
+              ls -la src-tauri/gen/android/app/src/main/java/ || echo "Path to .../app/src/main/java/ not found after init."
             else
               echo "src-tauri/gen/android directory DOES NOT exist after init (but src-tauri/gen does)."
             fi
           else
             echo "src-tauri/gen/ directory DOES NOT exist after init."
+          fi
+
+          if [ $INIT_EXIT_CODE -ne 0 ]; then
+            echo "Error: tauri android init command failed with exit code $INIT_EXIT_CODE."
+            exit $INIT_EXIT_CODE
           fi
 
       - name: Decode Android Keystore and Set Path
