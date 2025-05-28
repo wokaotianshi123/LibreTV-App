@@ -187,6 +187,11 @@ jobs:
           echo "Listing src-tauri/gen/ (after manual mkdir and potential rm):"
           ls -la src-tauri/gen/ || echo "src-tauri/gen still not found"
           
+          echo "Verifying NDK environment variables before init..."
+          echo "ANDROID_NDK_HOME is: $ANDROID_NDK_HOME"
+          export NDK_HOME="$ANDROID_NDK_HOME"
+          echo "NDK_HOME is now: $NDK_HOME"
+          
           echo "Running npm run tauri -- android init -vvv (all output to stdout)..."
           npm run tauri -- android init -vvv 2>&1
           INIT_EXIT_CODE=$?
