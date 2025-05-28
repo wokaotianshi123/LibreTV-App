@@ -300,13 +300,6 @@ jobs:
       #     tauriScript: 'tauri android'
       #     args: '-v'
 
-      - name: Build Tauri Android application (Direct Command)
-        run: npx tauri android build -v
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # NDK_HOME should be globally available from "Set NDK_HOME globally" step
-          # Keystore env vars are set at job level or by previous step
-
       - name: Configure ABI Splits in build.gradle
         run: |
           GRADLE_FILE="src-tauri/gen/android/app/build.gradle"
