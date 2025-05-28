@@ -182,10 +182,12 @@ jobs:
           echo "Deleting existing src-tauri/gen/android directory if it exists..."
           rm -rf src-tauri/gen/android
           
-          echo "Attempting to create src-tauri/gen/android parent directory structure manually..."
-          mkdir -p src-tauri/gen/android # Ensure parent 'gen' exists, init should create 'android'
-          echo "Listing src-tauri/gen/ (after manual mkdir and potential rm):"
+          echo "Attempting to create the full expected Java package directory structure manually..."
+          mkdir -p src-tauri/gen/android/app/src/main/java/com/libretv/app
+          echo "Listing src-tauri/gen/ (after manual deep mkdir and potential rm):"
           ls -la src-tauri/gen/ || echo "src-tauri/gen still not found"
+          echo "Listing src-tauri/gen/android/app/src/main/java/com/libretv/app (after manual deep mkdir):"
+          ls -la src-tauri/gen/android/app/src/main/java/com/libretv/app || echo "Deep path .../com/libretv/app not found after deep mkdir"
           
           echo "Verifying NDK environment variables before init..."
           echo "ANDROID_NDK_HOME is: $ANDROID_NDK_HOME"
