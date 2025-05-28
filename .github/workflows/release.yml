@@ -354,59 +354,74 @@ jobs:
           echo "app_bundle.apks generated."
           ls -l app_bundle.apks
 
-      - name: Create directory for extracted APKs and extract them
+      - name: Create directory for extracted APKs, extract, and set paths
+        id: extract_apk_files # Added id to reference outputs
         run: |
           mkdir -p extracted_apks
           unzip -o app_bundle.apks -d extracted_apks
-          # APKs are typically in 'extracted_apks/splits/' or 'extracted_apks/standalones/'
-          # The exact name might be 'base-armeabi_v7a.apk' or 'standalone-armeabi_v7a.apk' etc.
           echo "Contents of extracted_apks:"
           ls -R extracted_apks/
-          # The following lines help identify the exact paths for the upload steps
-          echo "Looking for APKs in extracted_apks/splits/ or extracted_apks/standalones/"
-          find extracted_apks \( -path "*/splits/*.apk" -o -path "*/standalones/*.apk" \) -print
+          
+          echo "Locating APK files..."
+          APK_ARMEABI_V7A=$(find extracted_apks -iname "*-armeabi-v7a*.apk" -print -quit)
+          APK_ARM64_V8A=$(find extracted_apks -iname "*-arm64-v8a*.apk" -print -quit)
+          # For x86, ensure we don't accidentally pick x86_64 if x86 is a substring
+          APK_X86=$(find extracted_apks -iname "*-x86.apk" -print -quit) 
+          if [[ "$APK_X86" == *"-x86_64.apk"* ]]; then # If plain x86 also matches x86_64, try more specific
+             APK_X86=$(find extracted_apks \( -iname "*-x86.apk" ! -iname "*-x86_64.apk" \) -print -quit)
+          fi
+          APK_X86_64=$(find extracted_apks -iname "*-x86_64*.apk" -print -quit)
+
+          echo "Path for armeabi-v7a: $APK_ARMEABI_V7A"
+          echo "Path for arm64-v8a: $APK_ARM64_V8A"
+          echo "Path for x86: $APK_X86"
+          echo "Path for x86_64: $APK_X86_64"
+
+          if [ -n "$APK_ARMEABI_V7A" ]; then echo "::set-output name=apk_armeabi_v7a_path::$APK_ARMEABI_V7A"; else echo "::error::armeabi-v7a APK not found in extracted_apks"; fi
+          if [ -n "$APK_ARM64_V8A" ]; then echo "::set-output name=apk_arm64_v8a_path::$APK_ARM64_V8A"; else echo "::error::arm64-v8a APK not found in extracted_apks"; fi
+          if [ -n "$APK_X86" ]; then echo "::set-output name=apk_x86_path::$APK_X86"; else echo "::error::x86 APK not found in extracted_apks"; fi
+          if [ -n "$APK_X86_64" ]; then echo "::set-output name=apk_x86_64_path::$APK_X86_64"; else echo "::error::x86_64 APK not found in extracted_apks"; fi
 
       - name: Upload armeabi-v7a APK (from bundletool)
+        if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' # Only run if path is found
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          # Path needs to be confirmed from the 'find' command output above.
-          # Assuming 'splits/base-armeabi_v7a.apk' or 'standalones/standalone-armeabi_v7a.apk'
-          # Let's try to find it dynamically or use a common pattern.
-          # This might require a more robust way to get the exact path.
-          # For now, we'll assume a common pattern. If this fails, the find output will guide.
-          asset_path: $(find extracted_apks -name "*-armeabi_v7a.apk" -print -quit)
+          asset_path: ${{ steps.extract_apk_files.outputs.apk_armeabi_v7a_path }}
           asset_name: libretv-${{ github.ref_name }}-android-armeabi-v7a.apk
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload arm64-v8a APK (from bundletool)
+        if: steps.extract_apk_files.outputs.apk_arm64_v8a_path != '' # Only run if path is found
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: $(find extracted_apks -name "*-arm64_v8a.apk" -print -quit)
+          asset_path: ${{ steps.extract_apk_files.outputs.apk_arm64_v8a_path }}
           asset_name: libretv-${{ github.ref_name }}-android-arm64-v8a.apk
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload x86 APK (from bundletool)
+        if: steps.extract_apk_files.outputs.apk_x86_path != '' # Only run if path is found
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: $(find extracted_apks -name "*-x86.apk" -not -name "*-x86_64.apk" -print -quit)
+          asset_path: ${{ steps.extract_apk_files.outputs.apk_x86_path }}
           asset_name: libretv-${{ github.ref_name }}-android-x86.apk
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload x86_64 APK (from bundletool)
+        if: steps.extract_apk_files.outputs.apk_x86_64_path != '' # Only run if path is found
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: $(find extracted_apks -name "*-x86_64.apk" -print -quit)
+          asset_path: ${{ steps.extract_apk_files.outputs.apk_x86_64_path }}
           asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
           asset_content_type: application/vnd.android.package-archive
