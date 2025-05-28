@@ -307,16 +307,45 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
-      - name: Upload Android APK to Release
-        uses: actions/upload-release-asset@v1
+      - name: Configure ABI Splits in build.gradle
+        run: |
+          GRADLE_FILE="src-tauri/gen/android/app/build.gradle"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "Error: $GRADLE_FILE not found. Make sure 'tauri android init' ran successfully."
+            exit 1
+          fi
+          # Add splits block inside android { ... }
+          # This attempts to add it after the buildTypes {} block, a common location.
+          # If buildTypes doesn't exist or is structured differently, this might need adjustment.
+          awk '
+          /buildTypes \{/ {
+            print;
+            while (getline > 0 && $0 !~ /^\s*\}\s*$/) print; # Print lines until end of buildTypes
+            print; # Print the closing brace of buildTypes
+            print "    splits {";
+            print "        abi {";
+            print "            enable true";
+            print "            reset()";
+            print "            include \"armeabi-v7a\", \"arm64-v8a\", \"x86\", \"x86_64\"";
+            print "            universalApk true"; // Keep universal signed APK as well
+            print "        }";
+            print "    }";
+            next;
+          }
+          { print }
+          ' "$GRADLE_FILE" > "$GRADLE_FILE.tmp" && mv "$GRADLE_FILE.tmp" "$GRADLE_FILE"
+          echo "ABI splits configured in $GRADLE_FILE"
+          echo "Contents of $GRADLE_FILE after modification:"
+          cat "$GRADLE_FILE"
+
+      - name: Build Tauri Android application (Direct Command)
+        run: npx tauri android build --release # Explicitly ensure release build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-          asset_name: libretv-${{ github.ref_name }}-android-universal-unsigned.apk
-          asset_content_type: application/vnd.android.package-archive
+          # NDK_HOME should be globally available
+          # Keystore env vars are set at job level or by previous step
 
+      # Upload the signed AAB (still recommended for Play Store)
       - name: Upload Android AAB to Release
         uses: actions/upload-release-asset@v1
         env:
@@ -326,3 +355,55 @@ jobs:
           asset_path: ./src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
           asset_name: libretv-${{ github.ref_name }}-android-universal.aab
           asset_content_type: application/octet-stream
+
+      # Upload the signed universal APK (if universalApk true)
+      - name: Upload Universal Signed APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          # Path for universal signed APK when splits are enabled and universalApk = true
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk 
+          asset_name: libretv-${{ github.ref_name }}-android-universal-signed.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload arm64-v8a Signed APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/arm64-v8a/release/app-arm64-v8a-release.apk
+          asset_name: libretv-${{ github.ref_name }}-android-arm64-v8a.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload armeabi-v7a Signed APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/armeabi-v7a/release/app-armeabi-v7a-release.apk
+          asset_name: libretv-${{ github.ref_name }}-android-armeabi-v7a.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload x86 Signed APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/x86/release/app-x86-release.apk
+          asset_name: libretv-${{ github.ref_name }}-android-x86.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload x86_64 Signed APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/gen/android/app/build/outputs/apk/x86_64/release/app-x86_64-release.apk
+          asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
+          asset_content_type: application/vnd.android.package-archive
