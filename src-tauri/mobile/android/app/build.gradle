@@ -90,6 +90,7 @@ android {
             excludes += 'META-INF/NOTICE.md'
         }
     }
+    println "Custom build.gradle: android block configured."
 }
 
 dependencies {
@@ -113,5 +114,3 @@ println "Custom build.gradle: Loaded and parsed."
 // and that version information is correctly propagated. Tauri usually handles this.
     // The `android init` command in the CI pipeline should prepare the project structure
     // that this build.gradle file will then configure.
-
-    println "Custom build.gradle: android block configured."
