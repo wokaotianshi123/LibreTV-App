@@ -179,8 +179,8 @@ jobs:
           echo "Listing src-tauri/ (before init):"
           ls -la src-tauri/ || echo "src-tauri directory not found before init"
           
-          echo "Running npx tauri android init -v ..."
-          npx tauri android init -v
+          echo "Running npm run tauri -- android init -v ..."
+          npm run tauri -- android init -v
           
           echo "Listing src-tauri/ (after init):"
           ls -la src-tauri/ || echo "src-tauri directory not found after init"
