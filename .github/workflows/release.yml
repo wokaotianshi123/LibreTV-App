@@ -156,6 +156,11 @@ jobs:
           # This action will also set up a default Android SDK platform and build-tools.
           # It sets ANDROID_HOME and ANDROID_NDK_HOME environment variables.
 
+      - name: Set NDK_HOME globally
+        run: |
+          echo "NDK_HOME=${ANDROID_NDK_HOME}" >> $GITHUB_ENV
+          echo "NDK_HOME has been set globally to: ${ANDROID_NDK_HOME}"
+
       # tauri-action and tauri-cli's android build process typically handles Java/Android SDK setup.
       # If issues arise, specific setup steps for Java (actions/setup-java) and Android SDK
       # (e.g., android-actions/setup-android or manual installation) might be needed.
@@ -189,10 +194,9 @@ jobs:
           echo "Listing src-tauri/gen/android/app/src/main/java/com/libretv/app (after manual deep mkdir):"
           ls -la src-tauri/gen/android/app/src/main/java/com/libretv/app || echo "Deep path .../com/libretv/app not found after deep mkdir"
           
-          echo "Verifying NDK environment variables before init..."
+          echo "Verifying NDK environment variables before init (NDK_HOME should be globally set now)..."
           echo "ANDROID_NDK_HOME is: $ANDROID_NDK_HOME"
-          export NDK_HOME="$ANDROID_NDK_HOME"
-          echo "NDK_HOME is now: $NDK_HOME"
+          echo "NDK_HOME is: $NDK_HOME" # This should now reflect the globally set value
           
           echo "Running npm run tauri -- android init -vvv (all output to stdout)..."
           npm run tauri -- android init -vvv 2>&1
