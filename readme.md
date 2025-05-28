@@ -29,32 +29,10 @@ LibreTV-App 是一个免费的在线视频搜索与观看平台。本项目是�
 
 ## 🚀 如何获取与运行
 
-LibreTV-App 作为跨平台应用，您可以直接从项目的 Releases 页面下载适用于您操作系统的安装包。
+LibreTV-App 作为跨平台应用，您可以直接从项目的 [Releases 页面](https://github.com/KeyRotate/LibreTV-App/releases)下载适用于您操作系统的安装包。
 
 安装后即可直接运行，无需额外配置或部署服务器。
 
 ## ⚙️ 编译与开发
 
 如果您希望从源代码编译本项目，或者参与开发贡献，请参考详细的 [构建指南 (BUILDING.md)](BUILDING.md)。
-
-## 🔧 自定义配置
-
-### 密码保护 (可选)
-
-LibreTV-App 应用本身支持通过设置密码来保护访问。此功能通常在应用内的设置中配置。
-
-### API兼容性
-
-LibreTV-App 支持标准的苹果 CMS V10 API 格式。添加自定义 API 时需遵循以下格式：
-- 搜索接口: `https://example.com/api.php/provide/vod/?ac=videolist&wd=关键词`
-- 详情接口: `https://example.com/api.php/provide/vod/?ac=detail&ids=视频ID`
-
-**添加 CMS 源**:
-1. 在设置面板中选择"自定义接口"
-2. 接口地址只需填写到域名部分: `https://example.com`（不要包含`/api.php/provide/vod`部分）
-
-## ⚠️ 免责声明
-
-LibreTV-App (基于原 LibreTV 项目) 仅作为视频搜索工具，不存储、上传或分发任何视频内容。所有视频均来自第三方 API 接口提供的搜索结果。如有侵权内容，请联系相应的内容提供方。
-
-本项目开发者不对使用本项目产生的任何后果负责。使用本项目时，您必须遵守当地的法律法规。
