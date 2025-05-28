@@ -173,7 +173,18 @@ jobs:
         run: npm install # Or yarn install, or pnpm install
 
       - name: Initialize Tauri Android project
-        run: npx tauri android init
+        run: npx tauri android init -v
+
+      - name: Check for Android project directory
+        run: |
+          echo "Checking if src-tauri/gen/android exists..."
+          ls -la src-tauri/gen/
+          if [ -d "src-tauri/gen/android" ]; then
+            echo "src-tauri/gen/android directory exists. Listing contents:"
+            ls -la src-tauri/gen/android
+          else
+            echo "src-tauri/gen/android directory DOES NOT exist after init."
+          fi
 
       - name: Decode Android Keystore and Set Path
         run: |
