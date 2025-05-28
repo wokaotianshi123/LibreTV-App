@@ -179,6 +179,12 @@ jobs:
           echo "Listing src-tauri/ (before init):"
           ls -la src-tauri/ || echo "src-tauri directory not found before init"
           
+          echo "Attempting to create src-tauri/gen/android directory structure manually..."
+          mkdir -p src-tauri/gen/android
+          echo "Listing src-tauri/gen/ (after manual mkdir):"
+          ls -la src-tauri/gen/ || echo "src-tauri/gen still not found after mkdir"
+          ls -la src-tauri/gen/android/ || echo "src-tauri/gen/android still not found after mkdir"
+
           echo "Running npm run tauri -- android init -v ..."
           npm run tauri -- android init -v
           
