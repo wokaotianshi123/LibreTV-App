@@ -108,28 +108,84 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
-      - name: Build Tauri application
-        uses: tauri-apps/tauri-action@v0 # Uses the v0 major release of the action
+      - name: Build Tauri application (Windows/Linux using tauri-action)
+        if: matrix.platform != 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }} # For macOS code signing
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }} # For macOS code signing
-          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }} # For macOS code signing
-          # APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }} # For macOS notarization
         with:
-          tagName: ${{ github.ref_name }} # Used by the action to tag the uploaded assets
-          releaseId: ${{ needs.create_release.outputs.release_id }} # Associates build with the created release
-          projectPath: '.' # Path to your Tauri project root (where tauri.conf.json is)
-          # tauriScript: 'npm run tauri' # Uncomment if your tauri script is not the default 'tauri'
-          # distPath: 'src-tauri/target/release/bundle' # Default paths are usually fine
-          # iconPath: 'src-tauri/icons/icon.png' # Default paths are usually fine
-          # includeDebug: false # Set to true to upload debug symbols
-          # updaterJson: true # Set to true to generate and upload updater JSON
+          tagName: ${{ github.ref_name }}
+          releaseId: ${{ needs.create_release.outputs.release_id }}
+          projectPath: '.'
 
-          # Note: tauri-action v0 automatically detects and uploads common artifacts:
-          # macOS: .app, .dmg
-          # Linux: .AppImage, .deb
-          # Windows: .msi, .exe (often zipped with debug symbols)
+      - name: Build, Ad-hoc Sign, and Package macOS App
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "Starting macOS specific build process..."
+          # Build the .app bundle
+          echo "Running npx tauri build..."
+          npm run build # Assuming this builds your frontend if not already done by tauri build
+          npx tauri build
+          
+          APP_NAME_RAW=$(jq -r ".productName" src-tauri/tauri.conf.json)
+          # Replace spaces with hyphens for some file system uses if necessary, but .app names can have spaces
+          # APP_NAME_FS=$(echo "$APP_NAME_RAW" | sed 's/ /-/g') 
+          APP_PATH="src-tauri/target/release/bundle/macos/${APP_NAME_RAW}.app"
+          
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: ${APP_PATH} not found after tauri build!"
+            ls -R src-tauri/target/release/bundle/macos/
+            exit 1
+          fi
+          echo ".app bundle found at ${APP_PATH}"
+
+          # Ad-hoc sign the .app bundle
+          echo "Ad-hoc signing ${APP_PATH}..."
+          codesign -s - --force --deep --options runtime "${APP_PATH}"
+          echo "Ad-hoc signing complete."
+
+          # Install create-dmg
+          echo "Installing create-dmg..."
+          # Check if brew is available, otherwise use npm
+          if command -v brew &> /dev/null
+          then
+              brew install create-dmg
+          else
+              sudo npm install -g create-dmg
+          fi
+          echo "create-dmg installed."
+
+          # Create the .dmg
+          DMG_OUTPUT_DIR="src-tauri/target/release/bundle/dmg"
+          mkdir -p "${DMG_OUTPUT_DIR}"
+          DMG_NAME="${APP_NAME_RAW}-${{ github.ref_name }}-${{ runner.arch }}.dmg"
+          DMG_PATH="${DMG_OUTPUT_DIR}/${DMG_NAME}"
+          
+          echo "Creating DMG: ${DMG_PATH} from ${APP_PATH}"
+          create-dmg \
+            --volname "${APP_NAME_RAW} ${{ github.ref_name }}" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "${APP_NAME_RAW}.app" 200 190 \
+            --hide-extension "${APP_NAME_RAW}.app" \
+            --app-drop-link 600 185 \
+            "${DMG_PATH}" \
+            "${APP_PATH}"
+          
+          if [ ! -f "$DMG_PATH" ]; then
+            echo "Error: DMG file ${DMG_PATH} not created!"
+            exit 1
+          fi
+          echo "DMG created successfully at ${DMG_PATH}"
+          ls -lh "${DMG_PATH}"
+
+          # Upload the .dmg artifact
+          echo "Uploading ${DMG_NAME}..."
+          gh release upload ${{ github.ref_name }} "${DMG_PATH}" --clobber
+          echo "DMG uploaded."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build_tauri_android_release:
     name: Build Tauri Android App (Release)
