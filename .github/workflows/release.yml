@@ -397,8 +397,24 @@ jobs:
           fi
           
           echo "AAB file found at $AAB_PATH"
-          echo "::set-output name=aab_file_path::$AAB_PATH"
+          echo "aab_file_path=$AAB_PATH" >> $GITHUB_OUTPUT
           ls -l "$AAB_PATH"
+
+      - name: Debug before Upload AAB
+        run: |
+          echo "Attempting to upload AAB artifact."
+          echo "AAB Path from check_aab step: ${{ steps.check_aab.outputs.aab_file_path }}"
+          ls -lh ${{ steps.check_aab.outputs.aab_file_path }} || echo "AAB file not found at path for ls command."
+
+      - name: Upload AAB for debugging
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-debug-${{ github.ref_name }}
+          path: ${{ steps.check_aab.outputs.aab_file_path }}
+          if-no-files-found: error
+
+      - name: Debug after Upload AAB
+        run: echo "Upload AAB artifact step finished."
 
       - name: Download bundletool
         run: |
@@ -419,6 +435,22 @@ jobs:
           echo "app_bundle_split.apks generated."
           ls -l app_bundle_split.apks
 
+      - name: Debug before Upload Split APKS
+        run: |
+          echo "Attempting to upload Split APKS artifact."
+          echo "Split APKS Path: ${{ github.workspace }}/app_bundle_split.apks"
+          ls -lh ${{ github.workspace }}/app_bundle_split.apks || echo "Split APKS file not found at path for ls command."
+
+      - name: Upload Split APKS for debugging
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-split-apks-debug-${{ github.ref_name }}
+          path: app_bundle_split.apks # This path is relative to GITHUB_WORKSPACE
+          if-no-files-found: error
+      
+      - name: Debug after Upload Split APKS
+        run: echo "Upload Split APKS artifact step finished."
+
       - name: Build Universal APK from AAB using bundletool
         id: build_universal_apk
         run: |
@@ -432,6 +464,22 @@ jobs:
             --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
           echo "app_bundle_universal.apks generated."
           ls -l app_bundle_universal.apks
+
+      - name: Debug before Upload Universal APKS
+        run: |
+          echo "Attempting to upload Universal APKS artifact."
+          echo "Universal APKS Path: ${{ github.workspace }}/app_bundle_universal.apks"
+          ls -lh ${{ github.workspace }}/app_bundle_universal.apks || echo "Universal APKS file not found at path for ls command."
+
+      - name: Upload Universal APKS for debugging
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-universal-apks-debug-${{ github.ref_name }}
+          path: app_bundle_universal.apks # This path is relative to GITHUB_WORKSPACE
+          if-no-files-found: error
+
+      - name: Debug after Upload Universal APKS
+        run: echo "Upload Universal APKS artifact step finished."
 
       - name: Create directory for extracted APKs, extract, and set paths
         id: extract_apk_files 
@@ -456,10 +504,10 @@ jobs:
           echo "Path for x86: $APK_X86"
           echo "Path for x86_64: $APK_X86_64"
 
-          if [ -n "$APK_ARMEABI_V7A" ]; then echo "::set-output name=apk_armeabi_v7a_path::$APK_ARMEABI_V7A"; else echo "::warning::armeabi-v7a APK not found in extracted_split_apks"; fi
-          if [ -n "$APK_ARM64_V8A" ]; then echo "::set-output name=apk_arm64_v8a_path::$APK_ARM64_V8A"; else echo "::warning::arm64-v8a APK not found in extracted_split_apks"; fi
-          if [ -n "$APK_X86" ]; then echo "::set-output name=apk_x86_path::$APK_X86"; else echo "::warning::x86 APK not found in extracted_split_apks"; fi
-          if [ -n "$APK_X86_64" ]; then echo "::set-output name=apk_x86_64_path::$APK_X86_64"; else echo "::warning::x86_64 APK not found in extracted_split_apks"; fi
+          if [ -n "$APK_ARMEABI_V7A" ]; then echo "apk_armeabi_v7a_path=$APK_ARMEABI_V7A" >> $GITHUB_OUTPUT; else echo "::warning::armeabi-v7a APK not found in extracted_split_apks"; echo "apk_armeabi_v7a_path=" >> $GITHUB_OUTPUT; fi
+          if [ -n "$APK_ARM64_V8A" ]; then echo "apk_arm64_v8a_path=$APK_ARM64_V8A" >> $GITHUB_OUTPUT; else echo "::warning::arm64-v8a APK not found in extracted_split_apks"; echo "apk_arm64_v8a_path=" >> $GITHUB_OUTPUT; fi
+          if [ -n "$APK_X86" ]; then echo "apk_x86_path=$APK_X86" >> $GITHUB_OUTPUT; else echo "::warning::x86 APK not found in extracted_split_apks"; echo "apk_x86_path=" >> $GITHUB_OUTPUT; fi
+          if [ -n "$APK_X86_64" ]; then echo "apk_x86_64_path=$APK_X86_64" >> $GITHUB_OUTPUT; else echo "::warning::x86_64 APK not found in extracted_split_apks"; echo "apk_x86_64_path=" >> $GITHUB_OUTPUT; fi
 
       - name: Extract Universal APK
         id: extract_universal_apk_file
@@ -471,7 +519,7 @@ jobs:
           UNIVERSAL_APK_PATH="extracted_universal_apk/universal.apk"
           if [ -f "$UNIVERSAL_APK_PATH" ]; then
             echo "Universal APK found at $UNIVERSAL_APK_PATH"
-            echo "::set-output name=universal_apk_path::$UNIVERSAL_APK_PATH"
+            echo "universal_apk_path=$UNIVERSAL_APK_PATH" >> $GITHUB_OUTPUT
             ls -l "$UNIVERSAL_APK_PATH"
           else
             echo "::error::Universal APK (universal.apk) not found after extracting app_bundle_universal.apks"
