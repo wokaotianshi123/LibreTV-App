@@ -124,7 +124,8 @@ jobs:
           echo "Starting macOS specific build process..."
           # Build the .app bundle
           echo "Running npx tauri build..."
-          npm run build # Assuming this builds your frontend if not already done by tauri build
+          # npm run build # Removed as it caused "Missing script: build" error. 
+          # Assuming npx tauri build handles frontend or it's prebuilt.
           npx tauri build
           
           APP_NAME_RAW=$(jq -r ".productName" src-tauri/tauri.conf.json)
