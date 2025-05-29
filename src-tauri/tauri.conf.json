@@ -37,9 +37,6 @@
     ],
     "android": {
       "minSdkVersion": 24
-    },
-    "macos": {
-      "targets": ["app"]
     }
   }
 }
