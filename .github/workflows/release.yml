@@ -342,48 +342,81 @@ jobs:
           java -jar bundletool.jar version # Verify download and tool
 
       - name: Build APKs from AAB using bundletool
-        id: build_apks
+        id: build_split_apks
         run: |
+          echo "Building Split APKs..."
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
-            --output=app_bundle.apks \
+            --output=app_bundle_split.apks \
             --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
             --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
             --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
             --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
-            # Default mode generates split APKs. No --mode=universal needed.
-          echo "app_bundle.apks generated."
-          ls -l app_bundle.apks
+          echo "app_bundle_split.apks generated."
+          ls -l app_bundle_split.apks
+
+      - name: Build Universal APK from AAB using bundletool
+        id: build_universal_apk
+        run: |
+          echo "Building Universal APK..."
+          java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
+            --output=app_bundle_universal.apks \
+            --mode=universal \
+            --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
+            --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
+            --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
+            --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
+          echo "app_bundle_universal.apks generated."
+          ls -l app_bundle_universal.apks
 
       - name: Create directory for extracted APKs, extract, and set paths
-        id: extract_apk_files # Added id to reference outputs
+        id: extract_apk_files 
         run: |
-          mkdir -p extracted_apks
-          unzip -o app_bundle.apks -d extracted_apks
-          echo "Contents of extracted_apks:"
-          ls -R extracted_apks/
+          echo "Extracting Split APKs..."
+          mkdir -p extracted_split_apks
+          unzip -o app_bundle_split.apks -d extracted_split_apks
+          echo "Contents of extracted_split_apks:"
+          ls -R extracted_split_apks/
           
-          echo "Locating APK files..."
-          APK_ARMEABI_V7A=$(find extracted_apks -iname "*-armeabi_v7a*.apk" -print -quit)
-          APK_ARM64_V8A=$(find extracted_apks -iname "*-arm64_v8a*.apk" -print -quit)
-          # For x86, ensure we don't accidentally pick x86_64 if x86 is a substring
-          APK_X86=$(find extracted_apks -iname "*-x86.apk" -print -quit) 
-          if [[ "$APK_X86" == *"-x86_64.apk"* ]]; then # If plain x86 also matches x86_64, try more specific
-             APK_X86=$(find extracted_apks \( -iname "*-x86.apk" ! -iname "*-x86_64.apk" \) -print -quit)
+          echo "Locating Split APK files..."
+          APK_ARMEABI_V7A=$(find extracted_split_apks -iname "*-armeabi_v7a*.apk" -print -quit)
+          APK_ARM64_V8A=$(find extracted_split_apks -iname "*-arm64_v8a*.apk" -print -quit)
+          APK_X86=$(find extracted_split_apks \( -iname "*-x86.apk" ! -iname "*-x86_64.apk" \) -print -quit)
+          if [ -z "$APK_X86" ]; then # Fallback if specific x86 not found, might pick x86 or x86_64
+             APK_X86=$(find extracted_split_apks -iname "*-x86*.apk" ! -iname "*-x86_64*.apk" -print -quit)
           fi
-          APK_X86_64=$(find extracted_apks -iname "*-x86_64*.apk" -print -quit)
+          APK_X86_64=$(find extracted_split_apks -iname "*-x86_64*.apk" -print -quit)
 
           echo "Path for armeabi-v7a: $APK_ARMEABI_V7A"
           echo "Path for arm64-v8a: $APK_ARM64_V8A"
           echo "Path for x86: $APK_X86"
           echo "Path for x86_64: $APK_X86_64"
 
-          if [ -n "$APK_ARMEABI_V7A" ]; then echo "::set-output name=apk_armeabi_v7a_path::$APK_ARMEABI_V7A"; else echo "::error::armeabi-v7a APK not found in extracted_apks"; fi
-          if [ -n "$APK_ARM64_V8A" ]; then echo "::set-output name=apk_arm64_v8a_path::$APK_ARM64_V8A"; else echo "::error::arm64-v8a APK not found in extracted_apks"; fi
-          if [ -n "$APK_X86" ]; then echo "::set-output name=apk_x86_path::$APK_X86"; else echo "::error::x86 APK not found in extracted_apks"; fi
-          if [ -n "$APK_X86_64" ]; then echo "::set-output name=apk_x86_64_path::$APK_X86_64"; else echo "::error::x86_64 APK not found in extracted_apks"; fi
+          if [ -n "$APK_ARMEABI_V7A" ]; then echo "::set-output name=apk_armeabi_v7a_path::$APK_ARMEABI_V7A"; else echo "::warning::armeabi-v7a APK not found in extracted_split_apks"; fi
+          if [ -n "$APK_ARM64_V8A" ]; then echo "::set-output name=apk_arm64_v8a_path::$APK_ARM64_V8A"; else echo "::warning::arm64-v8a APK not found in extracted_split_apks"; fi
+          if [ -n "$APK_X86" ]; then echo "::set-output name=apk_x86_path::$APK_X86"; else echo "::warning::x86 APK not found in extracted_split_apks"; fi
+          if [ -n "$APK_X86_64" ]; then echo "::set-output name=apk_x86_64_path::$APK_X86_64"; else echo "::warning::x86_64 APK not found in extracted_split_apks"; fi
 
+      - name: Extract Universal APK
+        id: extract_universal_apk_file
+        run: |
+          echo "Extracting Universal APK..."
+          mkdir -p extracted_universal_apk
+          unzip -oj app_bundle_universal.apks universal.apk -d extracted_universal_apk
+          # The -oj options: -o (overwrite without prompting), -j (junk paths, extract only the file to the target dir)
+          UNIVERSAL_APK_PATH="extracted_universal_apk/universal.apk"
+          if [ -f "$UNIVERSAL_APK_PATH" ]; then
+            echo "Universal APK found at $UNIVERSAL_APK_PATH"
+            echo "::set-output name=universal_apk_path::$UNIVERSAL_APK_PATH"
+            ls -l "$UNIVERSAL_APK_PATH"
+          else
+            echo "::error::Universal APK (universal.apk) not found after extracting app_bundle_universal.apks"
+            # List contents of the apks file for debugging
+            unzip -l app_bundle_universal.apks
+            exit 1
+          fi
+          
       - name: Upload armeabi-v7a APK (from bundletool)
-        if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' # Only run if path is found
+        if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' && steps.extract_apk_files.outputs.apk_armeabi_v7a_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -394,7 +427,7 @@ jobs:
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload arm64-v8a APK (from bundletool)
-        if: steps.extract_apk_files.outputs.apk_arm64_v8a_path != '' # Only run if path is found
+        if: steps.extract_apk_files.outputs.apk_arm64_v8a_path != '' && steps.extract_apk_files.outputs.apk_arm64_v8a_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -405,7 +438,7 @@ jobs:
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload x86 APK (from bundletool)
-        if: steps.extract_apk_files.outputs.apk_x86_path != '' # Only run if path is found
+        if: steps.extract_apk_files.outputs.apk_x86_path != '' && steps.extract_apk_files.outputs.apk_x86_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -416,7 +449,7 @@ jobs:
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload x86_64 APK (from bundletool)
-        if: steps.extract_apk_files.outputs.apk_x86_64_path != '' # Only run if path is found
+        if: steps.extract_apk_files.outputs.apk_x86_64_path != '' && steps.extract_apk_files.outputs.apk_x86_64_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -424,4 +457,15 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ${{ steps.extract_apk_files.outputs.apk_x86_64_path }}
           asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Universal APK (from bundletool)
+        if: steps.extract_universal_apk_file.outputs.universal_apk_path != '' && steps.extract_universal_apk_file.outputs.universal_apk_path != null
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.extract_universal_apk_file.outputs.universal_apk_path }}
+          asset_name: libretv-${{ github.ref_name }}-android-universal.apk
           asset_content_type: application/vnd.android.package-archive
