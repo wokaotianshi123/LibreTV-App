@@ -34,7 +34,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os_desc: macos-intel
+            platform: macos-13 # Intel-based macOS runner (Monterey)
+          - os_desc: macos-arm
+            platform: macos-14 # ARM-based macOS runner (Sonoma) - Apple Silicon
+          - os_desc: ubuntu-latest
+            platform: ubuntu-latest
+          - os_desc: windows-latest
+            platform: windows-latest
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -109,7 +117,7 @@ jobs:
         run: npm install # Or yarn install, or pnpm install
 
       - name: Build Tauri application (Windows/Linux using tauri-action)
-        if: matrix.platform != 'macos-latest'
+        if: matrix.os_desc == 'ubuntu-latest' || matrix.os_desc == 'windows-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -119,9 +127,9 @@ jobs:
           projectPath: '.'
 
       - name: Build, Ad-hoc Sign, and Package macOS App
-        if: matrix.platform == 'macos-latest'
+        if: matrix.os_desc == 'macos-intel' || matrix.os_desc == 'macos-arm'
         run: |
-          echo "Starting macOS specific build process..."
+          echo "Starting macOS specific build process for ${{ matrix.os_desc }} on runner arch ${{ runner.arch }}..."
           # Build the .app bundle
           echo "Running npx tauri build..."
           # npm run build # Removed as it caused "Missing script: build" error. 
