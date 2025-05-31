@@ -337,30 +337,96 @@ jobs:
             exit $INIT_EXIT_CODE
           fi
 
-      - name: Decode Android Keystore and Set Path
+      - name: Setup Android signing (Tauri docs)
         run: |
-          if [ -n "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" ]; then
-            echo "ANDROID_SIGNING_KEY_JKS_BASE64 secret is present. Decoding Keystore..."
-            echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > release_keystore.jks
-            echo "Keystore decoded to release_keystore.jks"
-            echo "TAURI_ANDROID_KEYSTORE_PATH=${{ github.workspace }}/release_keystore.jks" >> $GITHUB_ENV
-            echo "TAURI_ANDROID_KEYSTORE_PATH is set to ${{ github.workspace }}/release_keystore.jks"
-          else
-            echo "ANDROID_SIGNING_KEY_JKS_BASE64 secret is not set or empty. Failing the job."
+          echo "Setting up Android signing properties..."
+          KEYSTORE_DIR="src-tauri/gen/android"
+          mkdir -p "$KEYSTORE_DIR"
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > "$KEYSTORE_DIR/keystore.properties"
+          # Assuming ANDROID_KEYSTORE_PASSWORD is for both store and key as per Tauri example
+          echo "password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$KEYSTORE_DIR/keystore.properties"
+          
+          KEYSTORE_FILE_PATH="$RUNNER_TEMP/upload-keystore.jks"
+          echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > "$KEYSTORE_FILE_PATH"
+          echo "storeFile=$KEYSTORE_FILE_PATH" >> "$KEYSTORE_DIR/keystore.properties"
+          
+          echo "keystore.properties created in $KEYSTORE_DIR:"
+          cat "$KEYSTORE_DIR/keystore.properties"
+          echo "Keystore JKS file decoded to $KEYSTORE_FILE_PATH"
+        shell: bash
+
+      - name: Modify build.gradle.kts for signing
+        run: |
+          GRADLE_FILE="src-tauri/gen/android/app/build.gradle.kts"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "Error: $GRADLE_FILE not found. Android init might have failed or path is incorrect."
             exit 1
           fi
+          echo "Modifying $GRADLE_FILE for signing..."
 
-      # --- BEGIN NEW STEP ---
+          # Add imports if not already present
+          if ! grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
+            sed -i '1s/^/import java.io.FileInputStream\n/' "$GRADLE_FILE"
+            echo "Added FileInputStream import."
+          fi
+          if ! grep -q "import java.util.Properties" "$GRADLE_FILE"; then
+            # Insert after the FileInputStream import or at the top if FileInputStream wasn't just added
+            if grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
+               sed -i '/import java.io.FileInputStream/a import java.util.Properties' "$GRADLE_FILE"
+            else
+               sed -i '1s/^/import java.util.Properties\n/' "$GRADLE_FILE"
+            fi
+            echo "Added Properties import."
+          fi
+          
+          # Add signingConfigs block within android {} block, before buildTypes {}
+          # This is a bit tricky with sed. We'll look for the android { block.
+          # And insert before `buildTypes {`
+          SIGNING_CONFIG_BLOCK="    signingConfigs {\n        create(\"release\") {\n            val keystorePropertiesFile = rootProject.file(\"keystore.properties\")\n            val keystoreProperties = Properties()\n            if (keystorePropertiesFile.exists()) {\n                keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n            }\n\n            keyAlias = keystoreProperties[\"keyAlias\"] as String\n            keyPassword = keystoreProperties[\"password\"] as String\n            storeFile = file(keystoreProperties[\"storeFile\"] as String)\n            storePassword = keystoreProperties[\"password\"] as String\n        }\n    }\n"
+          
+          # Check if signingConfigs already exists to avoid duplication
+          if ! grep -q "signingConfigs {" "$GRADLE_FILE"; then
+            # Attempt to insert before 'buildTypes {' inside 'android {'
+            # This sed command looks for the line with 'android {' and then on the next lines until 'buildTypes {', inserts before 'buildTypes {'
+            # This is complex and might fail depending on exact formatting.
+            # A simpler, though less precise, approach might be needed if this fails, e.g., insert after "android {"
+            sed -i "/android {/,/buildTypes {/ { /buildTypes {/i\\
+$SIGNING_CONFIG_BLOCK
+            }" "$GRADLE_FILE"
+            echo "Added signingConfigs block."
+          else
+            echo "signingConfigs block already exists."
+          fi
+
+          # Modify buildTypes.release to use the signingConfig
+          # Ensure this modification is idempotent
+          if ! grep -q "signingConfig = signingConfigs.getByName(\"release\")" "$GRADLE_FILE"; then
+            sed -i '/buildTypes {/,/}/ { /getByName("release") {/ { /}/i\\            signingConfig = signingConfigs.getByName("release")' -e '}' "$GRADLE_FILE"
+            echo "Configured release build type to use signingConfig."
+          else
+            echo "Release build type already configured for signingConfig."
+          fi
+          echo "Finished modifying $GRADLE_FILE."
+          echo "--- Content of $GRADLE_FILE after modification: ---"
+          cat "$GRADLE_FILE"
+          echo "--- End of $GRADLE_FILE content ---"
+        shell: bash
+
       - name: Verify Decoded Keystore
         run: |
-          echo "Verifying keystore: ${{ github.workspace }}/release_keystore.jks with alias ${{ secrets.ANDROID_KEY_ALIAS }}"
+          KEYSTORE_FILE_PATH="$RUNNER_TEMP/upload-keystore.jks"
+          echo "Verifying keystore: $KEYSTORE_FILE_PATH with alias ${{ secrets.ANDROID_KEY_ALIAS }}"
+          if [ ! -f "$KEYSTORE_FILE_PATH" ]; then
+            echo "Error: Keystore file $KEYSTORE_FILE_PATH not found for verification!"
+            exit 1
+          fi
           keytool -list -v \
-            -keystore "${{ github.workspace }}/release_keystore.jks" \
+            -keystore "$KEYSTORE_FILE_PATH" \
             -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
             -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
-            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}"
+            -keypass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" # Assuming key password is same as store password from keystore.properties
           echo "Keystore verification command executed successfully."
-      # --- END NEW STEP ---
+        shell: bash
 
       # - name: Build Tauri Android application (Using tauri-action) # Disabled due to NDK_HOME issues with the action
       #   uses: tauri-apps/tauri-action@v0
@@ -413,7 +479,7 @@ jobs:
           # To be safe, let's add a download step for bundletool here if not present.
           if [ ! -f "bundletool.jar" ]; then
             echo "bundletool.jar not found, downloading..."
-            BTOOL_VERSION="1.15.6" # Ensure this matches the later download if any
+            BTOOL_VERSION="1.16.0" # Updated bundletool version
             wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
           fi
           echo "Validating AAB: $AAB_TO_VERIFY using bundletool validate"
@@ -467,20 +533,24 @@ jobs:
 
       - name: Download bundletool
         run: |
-          BTOOL_VERSION="1.15.6" # Specify bundletool version
-          wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
-          java -jar bundletool.jar version # Verify download and tool
+          # bundletool.jar might have been downloaded by 'Get AAB Signature Info using bundletool'
+          # This step ensures it is present and verifies version if re-downloaded.
+          if [ ! -f "bundletool.jar" ]; then
+            echo "bundletool.jar not found, downloading..."
+            BTOOL_VERSION="1.16.0"
+            wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
+          else
+            echo "bundletool.jar already exists."
+          fi
+          java -jar bundletool.jar version # Verify version
+        shell: bash
 
       - name: Build APKs from AAB using bundletool
         id: build_split_apks
         run: |
-          echo "Building Split APKs..."
+          echo "Building Split APKs (relying on AAB signature from Gradle)..."
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
-            --output=app_bundle_split.apks \
-            --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
-            --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
-            --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
-            --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
+            --output=app_bundle_split.apks
           echo "app_bundle_split.apks generated."
           ls -l app_bundle_split.apks
 
@@ -503,14 +573,10 @@ jobs:
       - name: Build Universal APK from AAB using bundletool
         id: build_universal_apk
         run: |
-          echo "Building Universal APK (with explicit bundletool signing flags)..."
+          echo "Building Universal APK (relying on AAB signature from Gradle)..."
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
             --output=app_bundle_universal.apks \
-            --mode=universal \
-            --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
-            --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
-            --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
-            --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
+            --mode=universal
           echo "app_bundle_universal.apks generated."
           ls -l app_bundle_universal.apks
 
