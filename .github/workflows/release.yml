@@ -350,6 +350,18 @@ jobs:
             exit 1
           fi
 
+      # --- BEGIN NEW STEP ---
+      - name: Verify Decoded Keystore
+        run: |
+          echo "Verifying keystore: ${{ github.workspace }}/release_keystore.jks with alias ${{ secrets.ANDROID_KEY_ALIAS }}"
+          keytool -list -v \
+            -keystore "${{ github.workspace }}/release_keystore.jks" \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}"
+          echo "Keystore verification command executed successfully."
+      # --- END NEW STEP ---
+
       # - name: Build Tauri Android application (Using tauri-action) # Disabled due to NDK_HOME issues with the action
       #   uses: tauri-apps/tauri-action@v0
       #   env:
