@@ -416,8 +416,9 @@ jobs:
             BTOOL_VERSION="1.15.6" # Ensure this matches the later download if any
             wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
           fi
-          java -jar bundletool.jar get-app-signature --bundle="$AAB_TO_VERIFY" --print-certs
-          echo "bundletool get-app-signature command executed."
+          echo "Validating AAB: $AAB_TO_VERIFY using bundletool validate"
+          java -jar bundletool.jar validate --bundle="$AAB_TO_VERIFY"
+          echo "bundletool validate command executed."
         shell: bash
 
       - name: Check AAB output and set path
