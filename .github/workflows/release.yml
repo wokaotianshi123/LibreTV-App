@@ -384,9 +384,9 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
-      - name: Verify AAB Signature
+      - name: Get AAB Signature Info using bundletool
         run: |
-          # Find the AAB file first (similar logic to check_aab step)
+          # Find the AAB file first
           AAB_DIR_FOR_VERIFY="src-tauri/gen/android/app/build/outputs/bundle"
           AAB_CANDIDATE_1_VERIFY="$AAB_DIR_FOR_VERIFY/universalRelease/app-universal-release.aab"
           AAB_CANDIDATE_2_VERIFY="$AAB_DIR_FOR_VERIFY/release/app-release.aab"
@@ -407,12 +407,17 @@ jobs:
             exit 1
           fi
           
-          echo "Verifying signature of AAB: $AAB_TO_VERIFY"
-          # Find the latest build-tools version to get apksigner
-          LATEST_BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)
-          echo "Using apksigner from build-tools version: $LATEST_BUILD_TOOLS_VERSION"
-          $ANDROID_HOME/build-tools/$LATEST_BUILD_TOOLS_VERSION/apksigner verify --print-certs "$AAB_TO_VERIFY"
-          echo "AAB signature verification command executed."
+          echo "Getting signature info from AAB: $AAB_TO_VERIFY using bundletool"
+          # bundletool.jar is downloaded in a later step, so we need to ensure it's available here
+          # For now, let's assume it's already downloaded or adjust the workflow to download it earlier.
+          # To be safe, let's add a download step for bundletool here if not present.
+          if [ ! -f "bundletool.jar" ]; then
+            echo "bundletool.jar not found, downloading..."
+            BTOOL_VERSION="1.15.6" # Ensure this matches the later download if any
+            wget https://github.com/google/bundletool/releases/download/${BTOOL_VERSION}/bundletool-all-${BTOOL_VERSION}.jar -O bundletool.jar
+          fi
+          java -jar bundletool.jar get-app-signature --bundle="$AAB_TO_VERIFY" --print-certs
+          echo "bundletool get-app-signature command executed."
         shell: bash
 
       - name: Check AAB output and set path
