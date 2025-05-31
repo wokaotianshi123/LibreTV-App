@@ -466,14 +466,10 @@ jobs:
       - name: Build Universal APK from AAB using bundletool
         id: build_universal_apk
         run: |
-          echo "Building Universal APK..."
+          echo "Building Universal APK (without explicit bundletool signing flags)..."
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
             --output=app_bundle_universal.apks \
-            --mode=universal \
-            --ks=${{ env.TAURI_ANDROID_KEYSTORE_PATH }} \
-            --ks-pass=pass:${{ env.TAURI_ANDROID_KEYSTORE_PASSWORD }} \
-            --ks-key-alias=${{ env.TAURI_ANDROID_KEY_ALIAS }} \
-            --key-pass=pass:${{ env.TAURI_ANDROID_KEY_PASSWORD }}
+            --mode=universal
           echo "app_bundle_universal.apks generated."
           ls -l app_bundle_universal.apks
 
