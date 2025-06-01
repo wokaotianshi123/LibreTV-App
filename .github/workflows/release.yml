@@ -357,8 +357,8 @@ jobs:
 
       - name: Modify build.gradle.kts for signing
         run: |
-          echo "Skipping Gradle modification script for YAML validation test."
-          echo "File src-tauri/gen/android/app/build.gradle.kts would normally be modified here."
+          chmod +x .github/scripts/configure_gradle_signing.sh
+          .github/scripts/configure_gradle_signing.sh
         shell: bash
 
       - name: Verify Decoded Keystore
