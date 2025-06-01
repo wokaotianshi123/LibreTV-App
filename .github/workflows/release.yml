@@ -337,22 +337,14 @@ jobs:
             exit $INIT_EXIT_CODE
           fi
 
-      - name: Setup Android signing (Tauri docs)
+      - name: Decode Keystore for apksigner
         run: |
-          echo "Setting up Android signing properties..."
-          KEYSTORE_DIR="src-tauri/gen/android"
-          mkdir -p "$KEYSTORE_DIR"
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > "$KEYSTORE_DIR/keystore.properties"
-          # Aligning with Tauri docs example, using ANDROID_KEY_PASSWORD for the 'password' field
-          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$KEYSTORE_DIR/keystore.properties"
-          
+          echo "Decoding Keystore JKS for apksigner..."
           KEYSTORE_FILE_PATH="$RUNNER_TEMP/upload-keystore.jks"
           echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > "$KEYSTORE_FILE_PATH"
-          echo "storeFile=$KEYSTORE_FILE_PATH" >> "$KEYSTORE_DIR/keystore.properties"
-          
-          echo "keystore.properties created in $KEYSTORE_DIR:"
-          cat "$KEYSTORE_DIR/keystore.properties"
           echo "Keystore JKS file decoded to $KEYSTORE_FILE_PATH"
+          # Make it available for subsequent steps if needed via env var
+          echo "SIGNING_KEYSTORE_PATH=$KEYSTORE_FILE_PATH" >> $GITHUB_ENV
         shell: bash
 
       - name: Modify build.gradle.kts for signing
@@ -440,17 +432,22 @@ jobs:
         id: check_aab
         run: |
           AAB_DIR="src-tauri/gen/android/app/build/outputs/bundle"
-          # AAB filename might vary slightly (e.g., app-release.aab, app-universal-release.aab)
-          # We'll search for the AAB file in the expected directory.
-          # Common pattern is 'app-release.aab' or 'app-universal-release.aab'
-          # The original workflow used 'app-universal-release.aab'
-          AAB_CANDIDATE_1="$AAB_DIR/universalRelease/app-universal-release.aab"
-          AAB_CANDIDATE_2="$AAB_DIR/release/app-release.aab" # Another common path/name
+          echo "Looking for AAB in $AAB_DIR..."
+          # Common patterns for release AABs (signed or unsigned by Gradle)
+          # Gradle typically produces app-release.aab (signed) or app-release-unsigned.aab (unsigned)
+          AAB_CANDIDATE_SIGNED_UNIVERSAL="$AAB_DIR/universalRelease/app-universal-release.aab" # If tauri produces this structure
+          AAB_CANDIDATE_SIGNED_RELEASE="$AAB_DIR/release/app-release.aab"
+          AAB_CANDIDATE_UNSIGNED_RELEASE="$AAB_DIR/release/app-release-unsigned.aab"
 
-          if [ -f "$AAB_CANDIDATE_1" ]; then
-            AAB_PATH="$AAB_CANDIDATE_1"
-          elif [ -f "$AAB_CANDIDATE_2" ]; then
-            AAB_PATH="$AAB_CANDIDATE_2"
+          if [ -f "$AAB_CANDIDATE_UNSIGNED_RELEASE" ]; then
+            AAB_PATH="$AAB_CANDIDATE_UNSIGNED_RELEASE"
+            echo "Found unsigned release AAB: $AAB_PATH"
+          elif [ -f "$AAB_CANDIDATE_SIGNED_RELEASE" ]; then
+            AAB_PATH="$AAB_CANDIDATE_SIGNED_RELEASE"
+            echo "Found signed release AAB: $AAB_PATH"
+          elif [ -f "$AAB_CANDIDATE_SIGNED_UNIVERSAL" ]; then # Less common for default Gradle output
+            AAB_PATH="$AAB_CANDIDATE_SIGNED_UNIVERSAL"
+            echo "Found universal release AAB: $AAB_PATH"
           else
             echo "Error: AAB file NOT found at expected locations."
             echo "Searched for: $AAB_CANDIDATE_1"
@@ -525,41 +522,91 @@ jobs:
         run: echo "Upload Split APKS artifact step finished."
         shell: bash
 
-      - name: Build Universal APK from AAB using bundletool
-        id: build_universal_apk
+      - name: Build Universal APK (unsigned) from AAB using bundletool
+        id: build_unsigned_universal_apk
         run: |
-          echo "Building Universal APK (relying on AAB signature from Gradle)..."
+          echo "Building unsigned Universal APK from AAB: ${{ steps.check_aab.outputs.aab_file_path }}"
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
-            --output=app_bundle_universal.apks \
+            --output=app_bundle_universal_unsigned.apks \
             --mode=universal
-          echo "app_bundle_universal.apks generated."
-          ls -l app_bundle_universal.apks
+            # No --ks flags, we want an unsigned .apks if AAB is unsigned
+          echo "app_bundle_universal_unsigned.apks generated."
+          ls -l app_bundle_universal_unsigned.apks
         shell: bash
 
-      - name: Debug before Upload Universal APKS
+      - name: Extract unsigned Universal APK
+        id: extract_unsigned_apk_file
         run: |
-          echo "Attempting to upload Universal APKS artifact."
-          echo "Universal APKS Path: ${{ github.workspace }}/app_bundle_universal.apks"
-          ls -lh ${{ github.workspace }}/app_bundle_universal.apks || echo "Universal APKS file not found at path for ls command."
+          echo "Extracting unsigned Universal APK from app_bundle_universal_unsigned.apks..."
+          mkdir -p extracted_universal_unsigned_apk
+          unzip -oj app_bundle_universal_unsigned.apks universal.apk -d extracted_universal_unsigned_apk
+          UNSIGNED_APK_PATH="extracted_universal_unsigned_apk/universal.apk"
+          if [ -f "$UNSIGNED_APK_PATH" ]; then
+            echo "Unsigned Universal APK found at $UNSIGNED_APK_PATH"
+            echo "unsigned_universal_apk_path=$UNSIGNED_APK_PATH" >> $GITHUB_OUTPUT
+            ls -l "$UNSIGNED_APK_PATH"
+          else
+            echo "::error::Unsigned Universal APK (universal.apk) not found after extracting app_bundle_universal_unsigned.apks"
+            unzip -l app_bundle_universal_unsigned.apks
+            exit 1
+          fi
         shell: bash
 
-      - name: Upload Universal APKS for debugging
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-universal-apks-debug-${{ github.ref_name }}
-          path: app_bundle_universal.apks # This path is relative to GITHUB_WORKSPACE
-          if-no-files-found: error
+      - name: Sign Universal APK (apksigner)
+        id: sign_universal_apk
+        run: |
+          echo "Signing the Universal APK with apksigner..."
+          APKSIGNER_PATH="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)/apksigner"
+          UNSIGNED_APK_PATH="${{ steps.extract_unsigned_apk_file.outputs.unsigned_universal_apk_path }}"
+          SIGNED_APK_PATH="libretv-${{ github.ref_name }}-android-universal.apk" # Final release name
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}" # From 'Decode Keystore for apksigner' step
 
-      - name: Debug after Upload Universal APKS
-        run: echo "Upload Universal APKS artifact step finished."
+          if [ -z "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned APK path is empty. Cannot sign."
+            exit 1
+          fi
+          if [ ! -f "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned APK file not found at: $UNSIGNED_APK_PATH"
+            exit 1
+          fi
+           if [ ! -f "$KEYSTORE_FILE" ]; then
+            echo "::error::Keystore file not found at: $KEYSTORE_FILE"
+            exit 1
+          fi
+
+          echo "Using apksigner at: $APKSIGNER_PATH"
+          echo "Input (unsigned) APK: $UNSIGNED_APK_PATH"
+          echo "Output (signed) APK: $SIGNED_APK_PATH"
+          echo "Keystore: $KEYSTORE_FILE"
+          echo "Key Alias: ${{ secrets.ANDROID_KEY_ALIAS }}"
+          
+          "$APKSIGNER_PATH" sign \
+            --verbose \
+            --ks "$KEYSTORE_FILE" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$SIGNED_APK_PATH" \
+            "$UNSIGNED_APK_PATH"
+          
+          echo "apksigner command executed. Verifying signed APK..."
+          "$APKSIGNER_PATH" verify --print-certs "$SIGNED_APK_PATH"
+          echo "Signed APK path: $SIGNED_APK_PATH"
+          echo "signed_apk_path=$SIGNED_APK_PATH" >> $GITHUB_OUTPUT
         shell: bash
+      
+      # Note: The original 'Create directory for extracted APKs, extract, and set paths' 
+      # (for split APKs) and its subsequent upload steps are now effectively for unsigned split APKs.
+      # We are focusing on the universal APK for signing first.
+      # The 'Extract Universal APK' (id: extract_universal_apk_file) and its upload step
+      # are replaced by the new apksigner flow.
 
       - name: Create directory for extracted APKs, extract, and set paths
         id: extract_apk_files 
         run: |
-          echo "Extracting Split APKs..."
+          echo "Extracting Split APKs (these will be unsigned with the new strategy)..."
           mkdir -p extracted_split_apks
-          unzip -o app_bundle_split.apks -d extracted_split_apks
+          unzip -o app_bundle_split.apks -d extracted_split_apks # app_bundle_split.apks is from build_split_apks step
           echo "Contents of extracted_split_apks:"
           ls -R extracted_split_apks/
           
@@ -583,26 +630,20 @@ jobs:
           if [ -n "$APK_X86_64" ]; then echo "apk_x86_64_path=$APK_X86_64" >> $GITHUB_OUTPUT; else echo "::warning::x86_64 APK not found in extracted_split_apks"; echo "apk_x86_64_path=" >> $GITHUB_OUTPUT; fi
         shell: bash
 
-      - name: Extract Universal APK
-        id: extract_universal_apk_file
-        run: |
-          echo "Extracting Universal APK..."
-          mkdir -p extracted_universal_apk
-          unzip -oj app_bundle_universal.apks universal.apk -d extracted_universal_apk
-          # The -oj options: -o (overwrite without prompting), -j (junk paths, extract only the file to the target dir)
-          UNIVERSAL_APK_PATH="extracted_universal_apk/universal.apk"
-          if [ -f "$UNIVERSAL_APK_PATH" ]; then
-            echo "Universal APK found at $UNIVERSAL_APK_PATH"
-            echo "universal_apk_path=$UNIVERSAL_APK_PATH" >> $GITHUB_OUTPUT
-            ls -l "$UNIVERSAL_APK_PATH"
-          else
-            echo "::error::Universal APK (universal.apk) not found after extracting app_bundle_universal.apks"
-            # List contents of the apks file for debugging
-            unzip -l app_bundle_universal.apks
-            exit 1
-          fi
-          
-      - name: Upload armeabi-v7a APK (from bundletool)
+      # This step is now effectively for the *signed* universal APK
+      - name: Upload Universal APK (from apksigner)
+        # Ensure this uses the output from the 'sign_universal_apk' step
+        if: steps.sign_universal_apk.outputs.signed_apk_path != '' && steps.sign_universal_apk.outputs.signed_apk_path != null
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.sign_universal_apk.outputs.signed_apk_path }} # Use path from apksigner step
+          asset_name: libretv-${{ github.ref_name }}-android-universal.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload armeabi-v7a APK (from bundletool) # These will be unsigned
         if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' && steps.extract_apk_files.outputs.apk_armeabi_v7a_path != null
         uses: actions/upload-release-asset@v1
         env:
