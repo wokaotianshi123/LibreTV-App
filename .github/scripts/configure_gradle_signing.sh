@@ -32,11 +32,9 @@ else
 fi
 echo "Import handling complete."
 
-# Add signingConfigs block using awk
-SIGNING_CONFIG_MARKER_START="// SIGNING_CONFIG_LIBRETV_START (do not modify or remove this line)"
-SIGNING_CONFIG_MARKER_END="// SIGNING_CONFIG_LIBRETV_END (do not modify or remove this line)"
-
-read -r -d '' SIGNING_CONFIG_BLOCK_CONTENT << EOM
+# Define content for signingConfigs block
+echo "Defining SIGNING_CONFIG_BLOCK_CONTENT..."
+SIGNING_CONFIG_BLOCK_CONTENT=$(cat << EOM
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("../keystore.properties")
@@ -47,11 +45,17 @@ read -r -d '' SIGNING_CONFIG_BLOCK_CONTENT << EOM
 
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["password"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
+            storeFile = file(keystoreProperties["storeFile"] as String) // Gradle's file() resolves path
             storePassword = keystoreProperties["password"] as String
         }
     }
 EOM
+)
+echo "SIGNING_CONFIG_BLOCK_CONTENT defined."
+
+# Add signingConfigs block using awk
+SIGNING_CONFIG_MARKER_START="// SIGNING_CONFIG_LIBRETV_START (do not modify or remove this line)"
+SIGNING_CONFIG_MARKER_END="// SIGNING_CONFIG_LIBRETV_END (do not modify or remove this line)"
 
 echo "Checking for signingConfigs block..."
 if ! grep -Fq "$SIGNING_CONFIG_MARKER_START" "$GRADLE_FILE"; then
