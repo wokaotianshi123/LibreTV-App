@@ -22,71 +22,17 @@ if ! grep -q "import java.io.FileInputStream;" "$GRADLE_FILE" && ! grep -q "impo
   sed -i '1iimport java.io.FileInputStream' "$GRADLE_FILE"
 fi
 echo "Import handling complete. Current top of $GRADLE_FILE:"
-head -n 5 "$GRADLE_FILE" # Print top 5 lines for verification
+head -n 15 "$GRADLE_FILE" # Print top lines for verification
 
 # Define content for signingConfigs block
 echo "Defining SIGNING_CONFIG_BLOCK_CONTENT..."
-SIGNING_CONFIG_BLOCK_CONTENT=$(cat << EOM
-    signingConfigs {
-        create("release") {
-            val keystorePropertiesFile = rootProject.file("../keystore.properties")
-            val keystoreProperties = java.util.Properties()
-            if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
-            }
-
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["password"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String) // Gradle's file() resolves path
-            storePassword = keystoreProperties["password"] as String
-        }
-    }
-EOM
-) # Corrected: Closing parenthesis on the same line as EOM or immediately after. For safety, EOM then ) on new line is fine, but EOM) is most common. Let's ensure EOM is truly alone.
-# Standard heredoc to variable:
-# VAR=$(cat <<EOF
-# content
-# EOF
-# ) <--- This was the error. It should be:
-# VAR=$(cat <<EOF
-# content
-# EOF
-# )
-# No, the error was `EOM\n)`. It should be `EOM\n)\n` or `EOM)`.
-# Let's use the most standard form:
-# SIGNING_CONFIG_BLOCK_CONTENT=$(cat <<EOM
-# ...
-# EOM
-# )
-# The `final_file_content` had `EOM\n)`. This is the syntax error.
-# The `)` must be on the same line as the command part, or the command must be structured to expect it.
-# `VAR=$( ... )`
-# The `cat << EOM ... EOM` is the command. So the `)` should be after `EOM`.
-# Corrected structure:
-# SIGNING_CONFIG_BLOCK_CONTENT=$(cat <<EOM
-# text
-# EOM
-# )
-# The previous `final_file_content` had:
-# EOM
-# )
-# This is the error. The `)` should be on the line with `EOM` or the `$(cat ...)` should be structured differently.
-# The most robust is:
-# SIGNING_CONFIG_BLOCK_CONTENT=$(cat << 'EOM_MARKER'
-# ... content ...
-# EOM_MARKER
-# )
-# Using a quoted heredoc marker also prevents any expansions inside the heredoc.
-# And ensuring the closing parenthesis is correctly placed.
-
-# Let's rewrite the assignment to be absolutely clear and robust:
 SIGNING_CONFIG_BLOCK_CONTENT_TEMP=$(cat << 'EOM_DELIMITER'
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("../keystore.properties")
-            val keystoreProperties = java.util.Properties()
+            val keystoreProperties = Properties() // Use short name, relying on import
             if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                keystoreProperties.load(FileInputStream(keystorePropertiesFile)) // Use short name
             }
 
             keyAlias = keystoreProperties["keyAlias"] as String
@@ -97,7 +43,7 @@ SIGNING_CONFIG_BLOCK_CONTENT_TEMP=$(cat << 'EOM_DELIMITER'
     }
 EOM_DELIMITER
 )
-SIGNING_CONFIG_BLOCK_CONTENT="$SIGNING_CONFIG_BLOCK_CONTENT_TEMP" # Assign to the original variable name
+SIGNING_CONFIG_BLOCK_CONTENT="$SIGNING_CONFIG_BLOCK_CONTENT_TEMP"
 echo "SIGNING_CONFIG_BLOCK_CONTENT defined."
 
 # Add signingConfigs block using awk
@@ -135,7 +81,6 @@ SIGNING_CONFIG_LINE="            signingConfig = signingConfigs.getByName(\"rele
 echo "Checking for buildTypes.release signingConfig..."
 if ! grep -Fq "$BUILD_TYPE_SIGNING_CONFIG_MARKER" "$GRADLE_FILE"; then
   echo "Attempting to modify buildTypes for release signingConfig..."
-  # Simpler awk: find the line with getByName("release") { and append after it.
   awk -v marker="$BUILD_TYPE_SIGNING_CONFIG_MARKER" \
       -v config_line="$SIGNING_CONFIG_LINE" '
     { print $0; } 
