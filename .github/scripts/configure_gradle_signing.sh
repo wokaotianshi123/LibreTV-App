@@ -30,15 +30,20 @@ SIGNING_CONFIG_BLOCK_CONTENT_TEMP=$(cat << 'EOM_DELIMITER'
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("../keystore.properties")
-            val keystoreProperties = Properties() // Use short name, relying on import
+            val keystoreProperties = Properties()
             if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(FileInputStream(keystorePropertiesFile)) // Use short name
+                FileInputStream(keystorePropertiesFile).use { stream ->
+                    keystoreProperties.load(stream)
+                }
+            } else {
+                throw GradleException("Keystore properties file not found at " + keystorePropertiesFile.absolutePath)
             }
 
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["password"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["password"] as String
+            keyAlias = keystoreProperties.getProperty("keyAlias") ?: throw GradleException("Missing 'keyAlias' in keystore.properties")
+            keyPassword = keystoreProperties.getProperty("password") ?: throw GradleException("Missing 'password' for keyAlias in keystore.properties")
+            val storeFilePath = keystoreProperties.getProperty("storeFile") ?: throw GradleException("Missing 'storeFile' in keystore.properties")
+            storeFile = file(storeFilePath)
+            storePassword = keystoreProperties.getProperty("password") ?: throw GradleException("Missing 'password' for keystore in keystore.properties")
         }
     }
 EOM_DELIMITER
