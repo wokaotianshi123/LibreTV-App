@@ -29,14 +29,15 @@ echo "Defining SIGNING_CONFIG_BLOCK_CONTENT..."
 SIGNING_CONFIG_BLOCK_CONTENT_TEMP=$(cat << 'EOM_DELIMITER'
     signingConfigs {
         create("release") {
-            val keystorePropertiesFile = rootProject.file("../keystore.properties")
+            // keystore.properties is in src-tauri/gen/android/ (rootProject for app module)
+            val keystorePropertiesFile = rootProject.file("keystore.properties") 
             val keystoreProperties = Properties()
             if (keystorePropertiesFile.exists()) {
                 FileInputStream(keystorePropertiesFile).use { stream ->
                     keystoreProperties.load(stream)
                 }
             } else {
-                throw GradleException("Keystore properties file not found at " + keystorePropertiesFile.absolutePath)
+                throw GradleException("Keystore properties file not found at: " + keystorePropertiesFile.absolutePath + ". Please ensure it is created correctly in src-tauri/gen/android/keystore.properties")
             }
 
             keyAlias = keystoreProperties.getProperty("keyAlias") ?: throw GradleException("Missing 'keyAlias' in keystore.properties")
