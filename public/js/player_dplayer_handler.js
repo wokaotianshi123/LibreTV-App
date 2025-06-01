@@ -190,103 +190,198 @@ function initPlayer(videoUrl, sourceCode) {
         }
 
         const videoElement = playerInstance.video;
-        let currentVideoMode = localStorage.getItem('dplayer-video-mode') || 'contain'; // Default to 'contain'
+        let currentVideoMode = localStorage.getItem('dplayer-video-mode') || 'contain';
+        let currentVideoOffsetY = localStorage.getItem('dplayer-video-offset-y') || '0%';
+        let isInOffsetSubmenu = false; // State to track if offset submenu is active
 
-        const createSettingItem = (label, mode) => {
+        const applyVideoStyles = () => {
+            videoElement.style.objectFit = currentVideoMode;
+            videoElement.style.objectPosition = (currentVideoMode === 'cover') ? `50% calc(50% + ${currentVideoOffsetY})` : '50% 50%';
+            videoElement.style.width = '100%';
+            videoElement.style.height = '100%';
+        };
+
+        const videoModeSettingItems = [];
+        const videoOffsetYSettingItems = [];
+        let backButtonFromOffsetMenu;
+
+        const createSettingItem = (label, actionOrMode, type, value = null) => {
             const item = document.createElement('div');
             item.classList.add('dplayer-setting-item');
-            item.classList.add(`dplayer-setting-video-mode-${mode}`); // For specific styling if needed
             
             const labelSpan = document.createElement('span');
             labelSpan.classList.add('dplayer-label');
             labelSpan.textContent = label;
             item.appendChild(labelSpan);
 
-            // Add a toggle-like element for visual feedback (checkmark)
             const toggleDiv = document.createElement('div');
-            toggleDiv.classList.add('dplayer-toggle'); // Use existing DPlayer toggle style
-            // We'll manually manage the 'checked' state via a custom class or direct style
+            toggleDiv.classList.add('dplayer-toggle');
             item.appendChild(toggleDiv);
 
-
-            item.addEventListener('click', () => {
-                videoElement.style.objectFit = mode;
-                currentVideoMode = mode;
-                localStorage.setItem('dplayer-video-mode', mode);
-                updateActiveStates();
-                // Optionally, hide the settings panel after selection
-                if (playerInstance.setting && typeof playerInstance.setting.hide === 'function') {
-                    playerInstance.setting.hide();
-                }
-            });
+            switch (type) {
+                case 'mode':
+                    item.classList.add(`dplayer-setting-video-mode-${actionOrMode}`);
+                    item.addEventListener('click', () => {
+                        currentVideoMode = actionOrMode;
+                        localStorage.setItem('dplayer-video-mode', currentVideoMode);
+                        if (currentVideoMode !== 'cover') {
+                            currentVideoOffsetY = '0%'; // Reset offset if not cover
+                            localStorage.setItem('dplayer-video-offset-y', currentVideoOffsetY);
+                        }
+                        applyVideoStyles();
+                        updateActiveStates();
+                        if (playerInstance.setting && typeof playerInstance.setting.hide === 'function') {
+                            playerInstance.setting.hide();
+                        }
+                    });
+                    break;
+                case 'mode-with-submenu': // For "画面裁剪"
+                    item.classList.add(`dplayer-setting-video-mode-${actionOrMode}`);
+                    item.addEventListener('click', () => {
+                        currentVideoMode = actionOrMode; // Set mode to cover
+                        localStorage.setItem('dplayer-video-mode', currentVideoMode);
+                        applyVideoStyles(); // Apply style immediately
+                        isInOffsetSubmenu = true;
+                        updateActiveStates(); // This will now show submenu items
+                    });
+                    break;
+                case 'offset':
+                    item.classList.add('dplayer-setting-video-offset-y');
+                    item.dataset.offsetValue = value;
+                    item.addEventListener('click', () => {
+                        currentVideoOffsetY = value;
+                        localStorage.setItem('dplayer-video-offset-y', currentVideoOffsetY);
+                        applyVideoStyles();
+                        updateActiveStates();
+                        // No hiding of panel, allow multiple offset selections
+                    });
+                    break;
+                case 'back':
+                    item.classList.add('dplayer-setting-back-button');
+                    item.addEventListener('click', () => {
+                        isInOffsetSubmenu = false;
+                        updateActiveStates();
+                    });
+                    // No toggle for back button, but keep div for layout consistency
+                    toggleDiv.style.display = 'none'; 
+                    // Add an arrow or "Back" text to labelSpan for clarity if needed
+                    labelSpan.innerHTML = `← ${label}`;
+                    break;
+            }
             return item;
         };
-
-        const modes = [
-            { label: playerInstance.tran('默认模式') || '默认模式', mode: 'contain' }, // Assuming 'contain' is default
-            { label: playerInstance.tran('画面裁剪') || '画面裁剪', mode: 'cover' },
-            { label: playerInstance.tran('画面拉伸') || '画面拉伸', mode: 'fill' }
+        
+        // Create main mode items
+        const mainModeOptions = [
+            { label: playerInstance.tran('默认模式') || '默认模式', mode: 'contain', type: 'mode' },
+            { label: playerInstance.tran('画面裁剪') || '画面裁剪', mode: 'cover', type: 'mode-with-submenu' },
+            { label: playerInstance.tran('画面拉伸') || '画面拉伸', mode: 'fill', type: 'mode' }
         ];
 
-        const settingItems = [];
-
-        modes.forEach(m => {
-            const newItem = createSettingItem(m.label, m.mode);
+        mainModeOptions.forEach(opt => {
+            const newItem = createSettingItem(opt.label, opt.mode, opt.type);
             originPanel.appendChild(newItem);
-            settingItems.push(newItem);
+            videoModeSettingItems.push(newItem);
+        });
+
+        // Create Back button for offset submenu (initially hidden)
+        backButtonFromOffsetMenu = createSettingItem(playerInstance.tran('返回') || '返回', null, 'back');
+        backButtonFromOffsetMenu.style.display = 'none';
+        originPanel.appendChild(backButtonFromOffsetMenu);
+
+        // Create Vertical Offset Label (initially hidden, part of submenu)
+        const offsetYLabel = createSettingItem(playerInstance.tran('垂直偏移') || '垂直偏移', null, 'offset-label');
+        offsetYLabel.style.display = 'none';
+        // For label, we don't want click events or toggle
+        offsetYLabel.classList.add('dplayer-setting-offset-label'); // For specific styling
+        offsetYLabel.querySelector('.dplayer-toggle').style.display = 'none';
+        offsetYLabel.replaceWith(offsetYLabel.cloneNode(true)); // Break event listener
+        originPanel.appendChild(offsetYLabel);
+        videoOffsetYSettingItems.push(offsetYLabel);
+
+
+        const offsets = [
+            { label: '+50%', value: '50%' }, { label: '+40%', value: '40%' },
+            { label: '+30%', value: '30%' }, { label: '+20%', value: '20%' },
+            { label: '+10%', value: '10%' }, { label: '0%', value: '0%' },
+            { label: '-10%', value: '-10%' }, { label: '-20%', value: '-20%' },
+            { label: '-30%', value: '-30%' }, { label: '-40%', value: '-40%' },
+            { label: '-50%', value: '-50%' }
+        ];
+
+        offsets.forEach(offset => {
+            const newItem = createSettingItem(offset.label, null, 'offset', offset.value);
+            newItem.style.display = 'none'; // Initially hidden, part of submenu
+            originPanel.appendChild(newItem);
+            videoOffsetYSettingItems.push(newItem);
         });
         
         function updateActiveStates() {
-            settingItems.forEach(item => {
-                const itemMode = item.classList.contains('dplayer-setting-video-mode-contain') ? 'contain' :
-                                 item.classList.contains('dplayer-setting-video-mode-cover') ? 'cover' : 'fill';
-                const toggleDiv = item.querySelector('.dplayer-toggle');
-
-                if (itemMode === currentVideoMode) {
-                    item.classList.add('dplayer-setting-item-active'); // Custom active class
-                    if (toggleDiv) {
-                        // Simulate a checked state for DPlayer's toggle
-                        // This requires DPlayer's CSS to have a style for .dplayer-toggle when parent is .dplayer-setting-item-active
-                        // Or, we add a specific checkmark SVG or text
-                        toggleDiv.innerHTML = '✓'; // Simple checkmark, can be replaced with SVG
-                        toggleDiv.style.color = playerInstance.options.theme || '#fff'; // Use theme color for checkmark
+            if (isInOffsetSubmenu) {
+                // In offset submenu: hide main modes, show back button and offset items
+                videoModeSettingItems.forEach(item => item.style.display = 'none');
+                backButtonFromOffsetMenu.style.display = 'flex';
+                videoOffsetYSettingItems.forEach(item => {
+                    item.style.display = item.classList.contains('dplayer-setting-offset-label') ? 'block' : 'flex';
+                    if (item.classList.contains('dplayer-setting-video-offset-y')) {
+                        const itemOffsetValue = item.dataset.offsetValue;
+                        const toggleDiv = item.querySelector('.dplayer-toggle');
+                        if (itemOffsetValue === currentVideoOffsetY) {
+                            item.classList.add('dplayer-setting-item-active');
+                            if (toggleDiv) { toggleDiv.innerHTML = '✓'; toggleDiv.style.color = playerInstance.options.theme || '#fff'; }
+                        } else {
+                            item.classList.remove('dplayer-setting-item-active');
+                            if (toggleDiv) toggleDiv.innerHTML = '';
+                        }
                     }
-                } else {
-                    item.classList.remove('dplayer-setting-item-active');
-                    if (toggleDiv) {
-                        toggleDiv.innerHTML = ''; // Clear checkmark
+                });
+            } else {
+                // In main settings menu: show main modes, hide back button and offset items
+                videoModeSettingItems.forEach(item => {
+                    item.style.display = 'flex';
+                    const itemMode = item.classList.contains('dplayer-setting-video-mode-contain') ? 'contain' :
+                                     item.classList.contains('dplayer-setting-video-mode-cover') ? 'cover' : 
+                                     item.classList.contains('dplayer-setting-video-mode-fill') ? 'fill' : null;
+                    const toggleDiv = item.querySelector('.dplayer-toggle');
+                    if (itemMode === currentVideoMode) {
+                        item.classList.add('dplayer-setting-item-active');
+                        if (toggleDiv) { toggleDiv.innerHTML = '✓'; toggleDiv.style.color = playerInstance.options.theme || '#fff'; }
+                    } else {
+                        item.classList.remove('dplayer-setting-item-active');
+                        if (toggleDiv) toggleDiv.innerHTML = '';
                     }
-                }
-            });
+                    // Add arrow for submenu indication on "画面裁剪"
+                    if (itemMode === 'cover' && toggleDiv) {
+                        toggleDiv.innerHTML = item.classList.contains('dplayer-setting-item-active') ? '✓ >' : '>';
+                    }
+                });
+                backButtonFromOffsetMenu.style.display = 'none';
+                videoOffsetYSettingItems.forEach(item => item.style.display = 'none');
+            }
         }
         
-        // Apply initial style
-        videoElement.style.objectFit = currentVideoMode;
-        videoElement.style.width = '100%'; // Ensure these for object-fit
-        videoElement.style.height = '100%';
+        applyVideoStyles(); 
         updateActiveStates();
 
-        // Add translations if not present - DPlayer's tran function is instance specific
-        if (!c['zh-cn']['默认模式']) { // c is the global translations object in DPlayer
-            c['zh-cn']['默认模式'] = '默认模式';
-            c['zh-cn']['画面裁剪'] = '画面裁剪';
-            c['zh-cn']['画面拉伸'] = '画面拉伸';
-        }
-         if (playerInstance.options.lang === 'zh-tw' && !c['zh-tw']['默认模式']) {
-            c['zh-tw']['默认模式'] = '默認模式';
-            c['zh-tw']['畫面裁剪'] = '畫面裁剪';
-            c['zh-tw']['畫面拉伸'] = '畫面拉伸';
+        const translations = {
+            'zh-cn': { '默认模式': '默认模式', '画面裁剪': '画面裁剪', '画面拉伸': '画面拉伸', '垂直偏移': '垂直偏移', '返回': '返回' },
+            'zh-tw': { '默认模式': '默認模式', '画面裁剪': '畫面裁剪', '画面拉伸': '畫面拉伸', '垂直偏移': '垂直偏移', '返回': '返回' }
+        };
+        const lang = playerInstance.options.lang;
+        if (translations[lang]) {
+            for (const key in translations[lang]) {
+                if (!c[lang][key]) { 
+                    c[lang][key] = translations[lang][key];
+                }
+            }
         }
     }
 
-    // Call this after DPlayer is fully initialized
-    // DPlayer might take a moment to render its DOM, so a slight delay can be safer.
-    dp.on('loadedmetadata', function() { // Or another event that ensures DOM is ready
+    dp.on('loadedmetadata', function() { 
         setTimeout(() => {
             addCustomVideoViewSettings(dp);
-        }, 100); // Small delay to ensure DPlayer UI is built
+        }, 100); 
     });
-
 
     setTimeout(function() {
         if (dp && dp.video && dp.video.currentTime > 0) return;
