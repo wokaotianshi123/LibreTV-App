@@ -13,29 +13,30 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     // Delay applying immersive mode until the decor view is ready
-    window.decorView.post {
-        applyImmersiveMode()
-    }
+    // window.decorView.post {
+    //     applyImmersiveMode()
+    // }
   }
 
   override fun onResume() {
     super.onResume()
     // Delay applying immersive mode
-    window.decorView.post {
-        applyImmersiveMode()
-    }
+    // window.decorView.post {
+    //     applyImmersiveMode()
+    // }
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
     super.onWindowFocusChanged(hasFocus)
-    if (hasFocus) {
-      // Delay applying immersive mode
-      window.decorView.post {
-          applyImmersiveMode()
-      }
-    }
+    // if (hasFocus) {
+    //   // Delay applying immersive mode
+    //   window.decorView.post {
+    //       applyImmersiveMode()
+    //   }
+    // }
   }
 
+  /*
   private fun applyImmersiveMode() {
     val window: Window = this.window // Use this.window for clarity inside the posted runnable
 
@@ -63,4 +64,5 @@ class MainActivity : TauriActivity() {
     // Optional: This might be too aggressive and could interfere with keyboard, etc.
     // window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
   }
+  */
 }

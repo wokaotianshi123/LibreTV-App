@@ -87,6 +87,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-immersive-android",
  "tauri-runtime",
  "tokio",
  "urlencoding",
@@ -3571,6 +3572,16 @@ dependencies = [
  "syn 2.0.101",
  "tauri-codegen",
  "tauri-utils",
+]
+
+[[package]]
+name = "tauri-plugin-immersive-android"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
 ]
 
 [[package]]
