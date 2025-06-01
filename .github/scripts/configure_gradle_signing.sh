@@ -2,7 +2,7 @@
 set -e # Exit immediately if a command exits with a non-zero status.
 
 GRADLE_FILE="src-tauri/gen/android/app/build.gradle.kts"
-TEMP_GRADLE_FILE="$GRADLE_FILE.tmp"
+TEMP_GRADLE_FILE="$GRADLE_FILE.tmp" # Still used by awk later
 
 if [ ! -f "$GRADLE_FILE" ]; then
   echo "Error: $GRADLE_FILE not found. Android init might have failed or path is incorrect."
@@ -11,26 +11,18 @@ fi
 
 echo "Modifying $GRADLE_FILE for signing..."
 
-# Ensure imports are present at the top
-echo "Checking for missing imports..."
-MISSING_IMPORTS=""
-# Check and prepare missing imports in reverse order of desired appearance
-if ! grep -q "import java.util.Properties" "$GRADLE_FILE"; then
-  MISSING_IMPORTS="import java.util.Properties\n$MISSING_IMPORTS"
+# Ensure imports are present at the top using sed -i '1i TEXT'
+echo "Checking and adding missing imports..."
+if ! grep -q "import java.util.Properties;" "$GRADLE_FILE" && ! grep -q "import java.util.Properties" "$GRADLE_FILE"; then
+  echo "Adding import java.util.Properties..."
+  sed -i '1iimport java.util.Properties' "$GRADLE_FILE"
 fi
-if ! grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
-  MISSING_IMPORTS="import java.io.FileInputStream\n$MISSING_IMPORTS"
+if ! grep -q "import java.io.FileInputStream;" "$GRADLE_FILE" && ! grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
+  echo "Adding import java.io.FileInputStream..."
+  sed -i '1iimport java.io.FileInputStream' "$GRADLE_FILE"
 fi
-
-if [ -n "$MISSING_IMPORTS" ]; then
-  echo "Attempting to add missing imports..."
-  CURRENT_CONTENT=$(cat "$GRADLE_FILE")
-  echo -e "${MISSING_IMPORTS}${CURRENT_CONTENT}" > "$TEMP_GRADLE_FILE" && mv "$TEMP_GRADLE_FILE" "$GRADLE_FILE"
-  echo "Added missing imports successfully."
-else
-  echo "Required imports already present."
-fi
-echo "Import handling complete."
+echo "Import handling complete. Current top of $GRADLE_FILE:"
+head -n 5 "$GRADLE_FILE" # Print top 5 lines for verification
 
 # Define content for signingConfigs block
 echo "Defining SIGNING_CONFIG_BLOCK_CONTENT..."
@@ -50,7 +42,62 @@ SIGNING_CONFIG_BLOCK_CONTENT=$(cat << EOM
         }
     }
 EOM
+) # Corrected: Closing parenthesis on the same line as EOM or immediately after. For safety, EOM then ) on new line is fine, but EOM) is most common. Let's ensure EOM is truly alone.
+# Standard heredoc to variable:
+# VAR=$(cat <<EOF
+# content
+# EOF
+# ) <--- This was the error. It should be:
+# VAR=$(cat <<EOF
+# content
+# EOF
+# )
+# No, the error was `EOM\n)`. It should be `EOM\n)\n` or `EOM)`.
+# Let's use the most standard form:
+# SIGNING_CONFIG_BLOCK_CONTENT=$(cat <<EOM
+# ...
+# EOM
+# )
+# The `final_file_content` had `EOM\n)`. This is the syntax error.
+# The `)` must be on the same line as the command part, or the command must be structured to expect it.
+# `VAR=$( ... )`
+# The `cat << EOM ... EOM` is the command. So the `)` should be after `EOM`.
+# Corrected structure:
+# SIGNING_CONFIG_BLOCK_CONTENT=$(cat <<EOM
+# text
+# EOM
+# )
+# The previous `final_file_content` had:
+# EOM
+# )
+# This is the error. The `)` should be on the line with `EOM` or the `$(cat ...)` should be structured differently.
+# The most robust is:
+# SIGNING_CONFIG_BLOCK_CONTENT=$(cat << 'EOM_MARKER'
+# ... content ...
+# EOM_MARKER
+# )
+# Using a quoted heredoc marker also prevents any expansions inside the heredoc.
+# And ensuring the closing parenthesis is correctly placed.
+
+# Let's rewrite the assignment to be absolutely clear and robust:
+SIGNING_CONFIG_BLOCK_CONTENT_TEMP=$(cat << 'EOM_DELIMITER'
+    signingConfigs {
+        create("release") {
+            val keystorePropertiesFile = rootProject.file("../keystore.properties")
+            val keystoreProperties = java.util.Properties()
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+            }
+
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["password"] as String
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["password"] as String
+        }
+    }
+EOM_DELIMITER
 )
+SIGNING_CONFIG_BLOCK_CONTENT="$SIGNING_CONFIG_BLOCK_CONTENT_TEMP" # Assign to the original variable name
 echo "SIGNING_CONFIG_BLOCK_CONTENT defined."
 
 # Add signingConfigs block using awk
