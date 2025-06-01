@@ -371,9 +371,9 @@ jobs:
           fi
           keytool -list -v \
             -keystore "$KEYSTORE_FILE_PATH" \
-            -storepass "${{ secrets.ANDROID_KEY_PASSWORD }}" \ # Aligning with password source
+            -storepass "${{ secrets.ANDROID_KEY_PASSWORD }}" \
             -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
-            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}" # Aligning with password source
+            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}"
           echo "Keystore verification command executed successfully."
         shell: bash
 
