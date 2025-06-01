@@ -343,8 +343,8 @@ jobs:
           KEYSTORE_DIR="src-tauri/gen/android"
           mkdir -p "$KEYSTORE_DIR"
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > "$KEYSTORE_DIR/keystore.properties"
-          # Assuming ANDROID_KEYSTORE_PASSWORD is for both store and key as per Tauri example
-          echo "password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$KEYSTORE_DIR/keystore.properties"
+          # Aligning with Tauri docs example, using ANDROID_KEY_PASSWORD for the 'password' field
+          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$KEYSTORE_DIR/keystore.properties"
           
           KEYSTORE_FILE_PATH="$RUNNER_TEMP/upload-keystore.jks"
           echo "${{ secrets.ANDROID_SIGNING_KEY_JKS_BASE64 }}" | base64 --decode > "$KEYSTORE_FILE_PATH"
@@ -371,9 +371,9 @@ jobs:
           fi
           keytool -list -v \
             -keystore "$KEYSTORE_FILE_PATH" \
-            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -storepass "${{ secrets.ANDROID_KEY_PASSWORD }}" \ # Aligning with password source
             -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
-            -keypass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" # Assuming key password is same as store password from keystore.properties
+            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}" # Aligning with password source
           echo "Keystore verification command executed successfully."
         shell: bash
 
