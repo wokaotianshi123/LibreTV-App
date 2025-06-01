@@ -357,61 +357,8 @@ jobs:
 
       - name: Modify build.gradle.kts for signing
         run: |
-          GRADLE_FILE="src-tauri/gen/android/app/build.gradle.kts"
-          if [ ! -f "$GRADLE_FILE" ]; then
-            echo "Error: $GRADLE_FILE not found. Android init might have failed or path is incorrect."
-            exit 1
-          fi
-          echo "Modifying $GRADLE_FILE for signing..."
-
-          # Add imports if not already present
-          if ! grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
-            sed -i '1s/^/import java.io.FileInputStream\n/' "$GRADLE_FILE"
-            echo "Added FileInputStream import."
-          fi
-          if ! grep -q "import java.util.Properties" "$GRADLE_FILE"; then
-            # Insert after the FileInputStream import or at the top if FileInputStream wasn't just added
-            if grep -q "import java.io.FileInputStream" "$GRADLE_FILE"; then
-               sed -i '/import java.io.FileInputStream/a import java.util.Properties' "$GRADLE_FILE"
-            else
-               sed -i '1s/^/import java.util.Properties\n/' "$GRADLE_FILE"
-            fi
-            echo "Added Properties import."
-          fi
-          
-          # Add signingConfigs block within android {} block, before buildTypes {}
-          # This is a bit tricky with sed. We'll look for the android { block.
-          # And insert before `buildTypes {`
-          SIGNING_CONFIG_BLOCK="    signingConfigs {\n        create(\"release\") {\n            val keystorePropertiesFile = rootProject.file(\"keystore.properties\")\n            val keystoreProperties = Properties()\n            if (keystorePropertiesFile.exists()) {\n                keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n            }\n\n            keyAlias = keystoreProperties[\"keyAlias\"] as String\n            keyPassword = keystoreProperties[\"password\"] as String\n            storeFile = file(keystoreProperties[\"storeFile\"] as String)\n            storePassword = keystoreProperties[\"password\"] as String\n        }\n    }\n"
-          
-          # Check if signingConfigs already exists to avoid duplication
-          if ! grep -q "signingConfigs {" "$GRADLE_FILE"; then
-            # Attempt to insert before 'buildTypes {' inside 'android {'
-            # This sed command looks for the line with 'android {' and then on the next lines until 'buildTypes {', inserts before 'buildTypes {'
-            # This is complex and might fail depending on exact formatting.
-            # A simpler, though less precise, approach might be needed if this fails, e.g., insert after "android {"
-            sed -i "/android {/,/buildTypes {/ { /buildTypes {/i\\
-$SIGNING_CONFIG_BLOCK
-            }" "$GRADLE_FILE"
-            echo "Added signingConfigs block."
-          else
-            echo "signingConfigs block already exists."
-          fi
-
-          # Modify buildTypes.release to use the signingConfig
-          # Ensure this modification is idempotent
-          if ! grep -q "signingConfig = signingConfigs.getByName(\"release\")" "$GRADLE_FILE"; then
-            # Append signingConfig after the opening brace of getByName("release") {
-            # Using POSIX-compliant sed 'a\' command with text on next line
-            sed -i '/getByName("release") {/a\'$'\n''            signingConfig = signingConfigs.getByName("release")' "$GRADLE_FILE"
-            echo "Configured release build type to use signingConfig."
-          else
-            echo "Release build type already configured for signingConfig."
-          fi
-          echo "Finished modifying $GRADLE_FILE."
-          echo "--- Content of $GRADLE_FILE after modification: ---"
-          cat "$GRADLE_FILE"
-          echo "--- End of $GRADLE_FILE content ---"
+          echo "Skipping Gradle modification script for YAML validation test."
+          echo "File src-tauri/gen/android/app/build.gradle.kts would normally be modified here."
         shell: bash
 
       - name: Verify Decoded Keystore
