@@ -287,6 +287,23 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
+      - name: Generate icons for Android (and other platforms)
+        run: |
+          # Assuming icon.png is at the root of your project or adjust path accordingly
+          # This command should generate icons in src-tauri/icons and potentially update src-tauri/res/android/mipmap-*
+          # if the Android project structure is already initialized or if tauri icon handles that.
+          # If icon.png is elsewhere, e.g., src-tauri/app-icon.png, change the path.
+          if [ -f "icon.png" ]; then
+            npx tauri icon icon.png
+            echo "Tauri icon command executed with icon.png"
+          elif [ -f "src-tauri/icons/icon.png" ]; then
+            # Fallback if the main icon.png is in src-tauri/icons
+            npx tauri icon src-tauri/icons/icon.png
+            echo "Tauri icon command executed with src-tauri/icons/icon.png"
+          else
+            echo "::warning::icon.png not found at root or src-tauri/icons/. Skipping tauri icon command."
+          fi
+
       - name: Initialize Tauri Android project and Check
         run: |
           echo "Current directory listing (before init):"
@@ -336,36 +353,6 @@ jobs:
             echo "Error: tauri android init command failed with exit code $INIT_EXIT_CODE."
             exit $INIT_EXIT_CODE
           fi
-
-      - name: Verify Generated Android Files for Fullscreen
-        run: |
-          echo "--- Contents of generated MainActivity.kt ---"
-          GENERATED_MAIN_ACTIVITY="src-tauri/gen/android/app/src/main/java/com/libretv/app/MainActivity.kt"
-          if [ -f "$GENERATED_MAIN_ACTIVITY" ]; then
-            cat "$GENERATED_MAIN_ACTIVITY"
-          else
-            echo "Error: Generated MainActivity.kt not found at $GENERATED_MAIN_ACTIVITY"
-            # Attempt to find it if package name was slightly different or path changed
-            echo "Searching for MainActivity.kt in src-tauri/gen/android/app/src/main/java/ ..."
-            find src-tauri/gen/android/app/src/main/java -name MainActivity.kt -print -exec echo "Found at: {}" \; -exec cat {} \;
-          fi
-
-          echo "--- Contents of generated themes.xml (values) ---"
-          GENERATED_THEMES_VALUES="src-tauri/gen/android/app/src/main/res/values/themes.xml"
-          if [ -f "$GENERATED_THEMES_VALUES" ]; then
-            cat "$GENERATED_THEMES_VALUES"
-          else
-            echo "Error: Generated themes.xml not found at $GENERATED_THEMES_VALUES"
-          fi
-
-          echo "--- Contents of generated themes.xml (values-night) ---"
-          GENERATED_THEMES_VALUES_NIGHT="src-tauri/gen/android/app/src/main/res/values-night/themes.xml"
-          if [ -f "$GENERATED_THEMES_VALUES_NIGHT" ]; then
-            cat "$GENERATED_THEMES_VALUES_NIGHT"
-          else
-            echo "Warning: Generated values-night/themes.xml not found at $GENERATED_THEMES_VALUES_NIGHT (this might be okay if you don't use a night theme)"
-          fi
-        shell: bash
 
       - name: Decode Keystore for apksigner
         run: |
@@ -420,47 +407,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
-
-      - name: Prepare Android Icons
-        run: |
-          # This step assumes 'npx tauri icon <your-icon.png>' would generate Android specific icons
-          # into a predictable location, e.g., 'src-tauri/icons/android/mipmap-*'
-          # or that you have pre-generated mipmap icons in a known source directory.
-          # Adjust ICON_SOURCE_DIR if your icons are elsewhere (e.g., 'src-tauri/mobile/android/app/src/main/res/')
-          ICON_SOURCE_DIR_PRIMARY="src-tauri/icons/android" 
-          ICON_SOURCE_DIR_FALLBACK="android_mipmap_icons" # User mentioned this in initial file list
-          ANDROID_GEN_RES_DIR="src-tauri/gen/android/app/src/main/res"
-
-          ACTUAL_ICON_SOURCE_DIR=""
-          if [ -d "$ICON_SOURCE_DIR_PRIMARY" ]; then
-            ACTUAL_ICON_SOURCE_DIR="$ICON_SOURCE_DIR_PRIMARY"
-            echo "Using primary icon source: $ICON_SOURCE_DIR_PRIMARY"
-          elif [ -d "$ICON_SOURCE_DIR_FALLBACK" ]; then
-            ACTUAL_ICON_SOURCE_DIR="$ICON_SOURCE_DIR_FALLBACK"
-            echo "Using fallback icon source: $ICON_SOURCE_DIR_FALLBACK"
-          else
-            echo "Warning: Neither primary icon source directory '$ICON_SOURCE_DIR_PRIMARY' nor fallback '$ICON_SOURCE_DIR_FALLBACK' found. Custom icons might not be applied."
-            exit 0 # Exit gracefully, default icons will be used
-          fi
-          
-          echo "Custom icons found in $ACTUAL_ICON_SOURCE_DIR. Copying to $ANDROID_GEN_RES_DIR..."
-          # Iterate over mipmap directories (e.g., mipmap-hdpi, mipmap-mdpi, etc.)
-          for size_dir_path in $ACTUAL_ICON_SOURCE_DIR/mipmap-*; do
-            if [ -d "$size_dir_path" ]; then
-              size_dir_name=$(basename "$size_dir_path")
-              target_mipmap_dir="$ANDROID_GEN_RES_DIR/$size_dir_name"
-              mkdir -p "$target_mipmap_dir" # Ensure target directory exists
-              echo "Copying contents from $size_dir_path to $target_mipmap_dir/"
-              # Copy all files (ic_launcher.png, ic_launcher_round.png, ic_launcher_foreground.png if they exist)
-              cp -R "$size_dir_path"/* "$target_mipmap_dir/"
-            else
-              echo "Warning: Expected mipmap sub-directory $size_dir_path not found in $ACTUAL_ICON_SOURCE_DIR."
-            fi
-          done
-          echo "Icon preparation step finished."
-          echo "Listing contents of $ANDROID_GEN_RES_DIR/mipmap-hdpi to verify:"
-          ls -la "$ANDROID_GEN_RES_DIR/mipmap-hdpi/" || echo "mipmap-hdpi directory not found or empty."
-        shell: bash
 
       - name: Get AAB Signature Info using bundletool
         run: |
