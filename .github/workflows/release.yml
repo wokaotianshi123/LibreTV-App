@@ -287,23 +287,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
-      - name: Generate icons for Android (and other platforms)
-        run: |
-          # Assuming icon.png is at the root of your project or adjust path accordingly
-          # This command should generate icons in src-tauri/icons and potentially update src-tauri/res/android/mipmap-*
-          # if the Android project structure is already initialized or if tauri icon handles that.
-          # If icon.png is elsewhere, e.g., src-tauri/app-icon.png, change the path.
-          if [ -f "icon.png" ]; then
-            npx tauri icon icon.png
-            echo "Tauri icon command executed with icon.png"
-          elif [ -f "src-tauri/icons/icon.png" ]; then
-            # Fallback if the main icon.png is in src-tauri/icons
-            npx tauri icon src-tauri/icons/icon.png
-            echo "Tauri icon command executed with src-tauri/icons/icon.png"
-          else
-            echo "::warning::icon.png not found at root or src-tauri/icons/. Skipping tauri icon command."
-          fi
-
       - name: Initialize Tauri Android project and Check
         run: |
           echo "Current directory listing (before init):"
