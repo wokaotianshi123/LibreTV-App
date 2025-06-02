@@ -287,6 +287,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
+      - name: Generate App Icons
+        run: npx tauri icon icon.png # Assumes icon.png is in the project root
+
       - name: Initialize Tauri Android project and Check
         run: |
           echo "Current directory listing (before init):"
@@ -297,11 +300,11 @@ jobs:
           echo "Deleting existing src-tauri/gen/android directory if it exists..."
           rm -rf src-tauri/gen/android
           
-          echo "Attempting to create the full expected Java package directory structure manually..."
-          mkdir -p src-tauri/gen/android/app/src/main/java/com/libretv/app
-          echo "Listing src-tauri/gen/ (after manual deep mkdir and potential rm):"
+          # echo "Attempting to create the full expected Java package directory structure manually..." # Removed this line
+          # mkdir -p src-tauri/gen/android/app/src/main/java/com/libretv/app # Removed this line
+          echo "Listing src-tauri/gen/ (after potential rm, before init):" # Modified log message
           ls -la src-tauri/gen/ || echo "src-tauri/gen still not found"
-          echo "Listing src-tauri/gen/android/app/src/main/java/com/libretv/app (after manual deep mkdir):"
+          echo "Listing src-tauri/gen/android/app/src/main/java/com/libretv/app (after potential rm, before init - this path might not exist yet):" # Modified log message
           ls -la src-tauri/gen/android/app/src/main/java/com/libretv/app || echo "Deep path .../com/libretv/app not found after deep mkdir"
           
           echo "Verifying NDK environment variables before init (NDK_HOME should be globally set now)..."
