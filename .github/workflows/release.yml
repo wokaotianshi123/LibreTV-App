@@ -310,7 +310,7 @@ jobs:
         shell: bash
 
       - name: Generate App Icons
-        run: npx tauri icon # Reads icon path from tauri.conf.json
+        run: npx tauri icon icon.png # Explicitly use icon.png from project root
 
       - name: Debug after Generate App Icons
         run: |
