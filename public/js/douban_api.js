@@ -136,6 +136,14 @@ async function fetchDoubanData(url) {
             console.log('[MY_APP_DEBUG_DOUBAN] Invoking make_http_request with options:', JSON.stringify(requestOptions));
         }
 
+        if (attempt === 0) {
+            // For the very first attempt in the app's lifecycle for a Douban API call,
+            // add a small delay to give Tauri's invoke mechanism a bit more time if it's a cold start.
+            // This is a targeted fix for the initial load issue.
+            console.log('[Douban API] First attempt for this URL, adding a small pre-delay.');
+            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+        }
+
         try {
             if (typeof tauriConstants === 'undefined' || !tauriConstants.invoke) {
                  console.warn('Tauri API (invoke) not available for Douban request.');
