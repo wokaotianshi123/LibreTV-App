@@ -68,8 +68,8 @@ function initializeApp() {
         
         // 默认启用豆瓣功能
         localStorage.setItem('doubanEnabled', 'true');
-        // 默认启用新旧豆瓣API模式
-        localStorage.setItem('doubanApiMode', 'true');
+        // 默认关闭新旧豆瓣API模式（即使用旧API）
+        localStorage.setItem('doubanApiMode', 'false');
 
         // 标记已初始化默认值
         localStorage.setItem('hasInitializedDefaults', 'true');
