@@ -454,58 +454,72 @@
                     // 隐藏弹窗
                     disclaimerModal.style.display = 'none';
 
-                    console.log("Disclaimer accepted. Forcing Douban content refresh.");
+                    console.log("Disclaimer accepted. Attempting to enable and refresh Douban content via toggle event.");
 
-                    // 1. 再次确保豆瓣功能在 localStorage 中是启用的
+                    // 1. 确保 localStorage 中 doubanEnabled 为 true
                     localStorage.setItem('doubanEnabled', 'true');
-                    console.log("Ensured doubanEnabled is true in localStorage after disclaimer.");
+                    console.log("Ensured doubanEnabled is 'true' in localStorage.");
 
-                    // 2. 手动更新设置中豆瓣开关的UI状态，以防 initDouban 中的UI更新不及时或被覆盖
+                    // 2. 获取豆瓣设置的开关元素
                     const doubanToggleSwitch = document.getElementById('doubanToggle');
                     if (doubanToggleSwitch) {
-                        doubanToggleSwitch.checked = true;
-                        const toggleBg = doubanToggleSwitch.nextElementSibling;
-                        const toggleDot = toggleBg ? toggleBg.nextElementSibling : null;
-                        if (toggleBg && toggleDot) {
-                            toggleBg.classList.add('bg-pink-600');
-                            toggleDot.classList.add('translate-x-6');
-                            console.log("Manually updated Douban toggle UI to enabled.");
+                        // 3. 如果开关当前不是选中状态，则更新它并触发 change 事件
+                        //    这将利用现有的事件监听器来更新 localStorage 并刷新内容。
+                        if (!doubanToggleSwitch.checked) {
+                            doubanToggleSwitch.checked = true;
+                            // 手动更新UI视觉效果 (因为直接设置 .checked 不会触发所有CSS伪类相关的更新)
+                            const toggleBg = doubanToggleSwitch.nextElementSibling;
+                            const toggleDot = toggleBg ? toggleBg.nextElementSibling : null;
+                            if (toggleBg && toggleDot) {
+                                toggleBg.classList.add('bg-pink-600');
+                                toggleDot.classList.add('translate-x-6');
+                            }
+                            console.log("Douban toggle was off, set to on and dispatching change event.");
+                            doubanToggleSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+                        } else {
+                            // 如果开关已经是选中状态，localStorage 也应该是 true。
+                            // 此时，可能需要直接刷新内容，因为 change 事件不会因状态未变而触发。
+                            // 或者，依赖于后续的 initDouban 调用（如果有）。
+                            // 为确保刷新，可以再次调用 initDouban 或相关函数。
+                            console.log("Douban toggle already on. Ensuring home page is active and calling initDouban.");
+                            sessionStorage.removeItem('homePageState'); // Clear old state
+                            const pageHome = document.getElementById('page-home');
+                            if (pageHome) pageHome.classList.remove('hidden');
+                            document.querySelectorAll('.page-content').forEach(page => {
+                                if (page.id !== 'page-home') page.classList.add('hidden');
+                            });
+                            const navItems = document.querySelectorAll('#bottomNav .nav-item');
+                            navItems.forEach(item => {
+                                item.classList.remove('active');
+                                if (item.dataset.page === 'home') item.classList.add('active');
+                            });
+                            sessionStorage.setItem('activeTab', 'home');
+                            if (typeof initDouban === 'function') {
+                                setTimeout(function() {
+                                    initDouban({ forceMainView: true });
+                                }, 50); // Short delay
+                            }
                         }
                     } else {
-                        console.warn("Douban toggle switch UI element not found for manual update.");
-                    }
-                    
-                    // 3. 确保主页内容区域可见并设为当前活动标签页
-                    const pageHome = document.getElementById('page-home');
-                    if (pageHome) {
-                        pageHome.classList.remove('hidden');
-                    }
-                    document.querySelectorAll('.page-content').forEach(page => {
-                        if (page.id !== 'page-home') {
-                            page.classList.add('hidden');
+                        console.warn("Douban toggle switch UI element not found. Falling back to direct initDouban.");
+                        // Fallback if toggle not found: ensure home is visible and call initDouban
+                        sessionStorage.removeItem('homePageState');
+                        const pageHome = document.getElementById('page-home');
+                        if (pageHome) pageHome.classList.remove('hidden');
+                         document.querySelectorAll('.page-content').forEach(page => {
+                            if (page.id !== 'page-home') page.classList.add('hidden');
+                        });
+                        const navItems = document.querySelectorAll('#bottomNav .nav-item');
+                        navItems.forEach(item => {
+                            item.classList.remove('active');
+                            if (item.dataset.page === 'home') item.classList.add('active');
+                        });
+                        sessionStorage.setItem('activeTab', 'home');
+                        if (typeof initDouban === 'function') {
+                           setTimeout(function() {
+                                initDouban({ forceMainView: true });
+                            }, 150);
                         }
-                    });
-                     const navItems = document.querySelectorAll('#bottomNav .nav-item');
-                     navItems.forEach(item => {
-                         item.classList.remove('active');
-                         if (item.dataset.page === 'home') {
-                             item.classList.add('active');
-                         }
-                     });
-                    sessionStorage.setItem('activeTab', 'home');
-                    // 清除可能存在的旧的首页状态，以确保全新加载
-                    sessionStorage.removeItem('homePageState'); 
-
-
-                    // 4. 直接调用 initDouban 来刷新内容
-                    if (typeof initDouban === 'function') {
-                        // 使用一个短延迟确保DOM更新和localStorage设置已生效
-                        setTimeout(function() {
-                            console.log("Calling initDouban({ forceMainView: true }) after disclaimer and UI pre-setting.");
-                            initDouban({ forceMainView: true });
-                        }, 150); // 150ms delay
-                    } else {
-                        console.error("initDouban function not found after disclaimer acceptance.");
                     }
                 });
             }
