@@ -454,12 +454,18 @@
                     // 隐藏弹窗
                     disclaimerModal.style.display = 'none';
 
-                    // 新增：重新初始化/加载豆瓣首页内容
-                    if (typeof initDouban === 'function') {
-                        console.log("Disclaimer accepted, re-initializing Douban content.");
-                        initDouban({ forceMainView: true }); // 强制刷新主页视图
+                    // 确保首页被正确加载或刷新
+                    if (typeof navigateToTab === 'function') {
+                        console.log("Disclaimer accepted, navigating to home tab to refresh content.");
+                        // 清除可能存在的旧的首页状态，以确保全新加载
+                        sessionStorage.removeItem('homePageState'); 
+                        navigateToTab('home');
                     } else {
-                        console.error("initDouban function not found after disclaimer acceptance.");
+                        console.error("navigateToTab function not found after disclaimer acceptance. Attempting direct initDouban.");
+                        // Fallback if navigateToTab is somehow not available, though it should be.
+                        if (typeof initDouban === 'function') {
+                            initDouban({ forceMainView: true });
+                        }
                     }
                 });
             }
