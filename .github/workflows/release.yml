@@ -374,6 +374,49 @@ jobs:
             exit $INIT_EXIT_CODE
           fi
 
+      - name: Generate App Icons (Post-Init)
+        run: npx tauri icon icon.png # Use icon.png from project root
+
+      - name: Debug after Post-Init Generate App Icons
+        run: |
+          echo "--- Debug: After Post-Init Generate App Icons ---"
+          echo "Checking Android mipmap dirs (after post-init tauri icon):"
+          if [ -d "src-tauri/gen/android/app/src/main/res" ]; then
+            find src-tauri/gen/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
+          else
+            echo "src-tauri/gen/android/app/src/main/res directory not found."
+          fi
+          echo "--- End Debug ---"
+        shell: bash
+
+      - name: Override AndroidManifest and themes
+        run: |
+          echo "Overriding AndroidManifest.xml and themes.xml..."
+          MANIFEST_OVERRIDE_SRC="src-tauri/android_res_override/AndroidManifest.xml"
+          THEMES_OVERRIDE_SRC="src-tauri/android_res_override/values/themes.xml"
+
+          MANIFEST_DEST_DIR="src-tauri/gen/android/app/src/main"
+          THEMES_DEST_DIR="src-tauri/gen/android/app/src/main/res/values"
+
+          # Ensure destination directories exist (they should after 'tauri android init')
+          mkdir -p "$MANIFEST_DEST_DIR"
+          mkdir -p "$THEMES_DEST_DIR"
+
+          if [ -f "$MANIFEST_OVERRIDE_SRC" ]; then
+            cp "$MANIFEST_OVERRIDE_SRC" "$MANIFEST_DEST_DIR/AndroidManifest.xml"
+            echo "Copied AndroidManifest.xml to $MANIFEST_DEST_DIR/"
+          else
+            echo "::warning:: Override AndroidManifest.xml not found at $MANIFEST_OVERRIDE_SRC"
+          fi
+
+          if [ -f "$THEMES_OVERRIDE_SRC" ]; then
+            cp "$THEMES_OVERRIDE_SRC" "$THEMES_DEST_DIR/themes.xml"
+            echo "Copied themes.xml to $THEMES_DEST_DIR/"
+          else
+            echo "::warning:: Override themes.xml not found at $THEMES_OVERRIDE_SRC"
+          fi
+        shell: bash
+
       - name: Decode Keystore for apksigner
         run: |
           echo "Decoding Keystore JKS for apksigner..."
