@@ -287,6 +287,16 @@ jobs:
       - name: Install frontend dependencies
         run: npm install # Or yarn install, or pnpm install
 
+      - name: Clean up potentially problematic custom Android resources
+        run: |
+          echo "Attempting to remove custom AndroidManifest.xml and themes.xml..."
+          rm -f src-tauri/res/android/AndroidManifest.xml
+          rm -f src-tauri/res/android/values/themes.xml
+          # Optionally, also remove colors.xml if it's not essential or might be problematic
+          # rm -f src-tauri/res/android/values/colors.xml
+          echo "Cleanup of custom Android resources complete."
+        shell: bash
+
       - name: Generate App Icons
         run: npx tauri icon icon.png # Assumes icon.png is in the project root
 
