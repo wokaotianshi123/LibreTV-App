@@ -632,10 +632,22 @@ jobs:
       - name: Build APKs from AAB using bundletool
         id: build_split_apks
         run: |
-          echo "Building Split APKs (relying on AAB signature from Gradle)..."
+          echo "Building SIGNED Split APKs using bundletool..."
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}" # From 'Decode Keystore for apksigner' step
+
+          if [ ! -f "$KEYSTORE_FILE" ]; then
+            echo "::error::Keystore file not found for bundletool signing at: $KEYSTORE_FILE"
+            exit 1
+          fi
+
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
-            --output=app_bundle_split.apks
-          echo "app_bundle_split.apks generated."
+            --output=app_bundle_split.apks \
+            --ks="$KEYSTORE_FILE" \
+            --ks-key-alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD }}" # Assuming key password is same as keystore password
+            # If your key has a different password, you'd use: --key-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD_FOR_KEY }}"
+          echo "SIGNED app_bundle_split.apks generated."
           ls -l app_bundle_split.apks
         shell: bash
 
