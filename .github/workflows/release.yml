@@ -297,8 +297,32 @@ jobs:
           echo "Cleanup of custom Android resources complete."
         shell: bash
 
+      - name: Debug before Generate App Icons
+        run: |
+          echo "--- Debug: Before Generate App Icons ---"
+          echo "Listing project root:"
+          ls -la
+          echo "Checking for src-tauri/icons/:"
+          ls -la src-tauri/icons/ || echo "src-tauri/icons/ not found or empty."
+          echo "Checking for existing Android mipmap dirs (before tauri icon):"
+          ls -R src-tauri/gen/android/app/src/main/res/mipmap* || echo "No mipmap directories found yet in src-tauri/gen/android/app/src/main/res/"
+          echo "--- End Debug ---"
+        shell: bash
+
       - name: Generate App Icons
         run: npx tauri icon icon.png # Assumes icon.png is in the project root
+
+      - name: Debug after Generate App Icons
+        run: |
+          echo "--- Debug: After Generate App Icons ---"
+          echo "Checking Android mipmap dirs (after tauri icon):"
+          if [ -d "src-tauri/gen/android/app/src/main/res" ]; then
+            find src-tauri/gen/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
+          else
+            echo "src-tauri/gen/android/app/src/main/res directory not found."
+          fi
+          echo "--- End Debug ---"
+        shell: bash
 
       - name: Initialize Tauri Android project and Check
         run: |
