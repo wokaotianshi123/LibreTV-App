@@ -453,6 +453,14 @@
                     localStorage.setItem('hasSeenDisclaimer', 'true');
                     // 隐藏弹窗
                     disclaimerModal.style.display = 'none';
+
+                    // 新增：重新初始化/加载豆瓣首页内容
+                    if (typeof initDouban === 'function') {
+                        console.log("Disclaimer accepted, re-initializing Douban content.");
+                        initDouban({ forceMainView: true }); // 强制刷新主页视图
+                    } else {
+                        console.error("initDouban function not found after disclaimer acceptance.");
+                    }
                 });
             }
         });

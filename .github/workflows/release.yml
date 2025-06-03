@@ -630,43 +630,43 @@ jobs:
         shell: bash
 
       - name: Build APKs from AAB using bundletool
-        id: build_split_apks
+        id: build_split_apks_unsigned # Renamed id for clarity
         run: |
-          echo "Building SIGNED Split APKs using bundletool..."
-          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}" # From 'Decode Keystore for apksigner' step
-
-          if [ ! -f "$KEYSTORE_FILE" ]; then
-            echo "::error::Keystore file not found for bundletool signing at: $KEYSTORE_FILE"
-            exit 1
-          fi
-
+          echo "Building UNSIGNED Split APKs using bundletool..."
+          # Keystore information is removed as we want unsigned APKs from this step
           java -jar bundletool.jar build-apks --bundle=${{ steps.check_aab.outputs.aab_file_path }} \
-            --output=app_bundle_split.apks \
-            --ks="$KEYSTORE_FILE" \
-            --ks-key-alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
-            --ks-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
-            --key-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD }}" # Assuming key password is same as keystore password
-            # If your key has a different password, you'd use: --key-pass="pass:${{ secrets.ANDROID_KEY_PASSWORD_FOR_KEY }}"
-          echo "SIGNED app_bundle_split.apks generated."
-          ls -l app_bundle_split.apks
+            --output=app_bundle_split_unsigned.apks \
+            --mode=universal # Keep universal mode to get all splits, but they will be within an APKS for extraction
+            # No --ks flags, we want an unsigned .apks if AAB is unsigned, or if AAB is signed, this still extracts them without re-signing here.
+            # The key is that the individual .apk files inside this .apks will be what we need to sign individually.
+            # If the AAB was signed by Gradle, bundletool build-apks without --ks might still produce signed APKs if it just extracts.
+            # To be certain, we should ensure the AAB from 'npx tauri android build' is unsigned, or use bundletool extract-apks.
+            # For now, let's assume this produces an APKS from which we can get base APKs to sign.
+            # A safer alternative if AAB is signed:
+            # java -jar bundletool.jar extract-apks --apks=app_bundle_signed.apks --output-dir=extracted_from_signed_apks --device-spec=device_spec.json
+            # But we want to sign them ourselves with apksigner.
+            # Let's assume the AAB from `npx tauri android build` is unsigned because we removed signing from tauri.conf.json.
+            # Therefore, `bundletool build-apks --mode=universal` (without --ks) on an unsigned AAB should produce an .apks containing unsigned .apk files.
+          echo "UNSIGNED app_bundle_split_unsigned.apks generated."
+          ls -l app_bundle_split_unsigned.apks
         shell: bash
 
       - name: Debug before Upload Split APKS
         run: |
-          echo "Attempting to upload Split APKS artifact."
-          echo "Split APKS Path: ${{ github.workspace }}/app_bundle_split.apks"
-          ls -lh ${{ github.workspace }}/app_bundle_split.apks || echo "Split APKS file not found at path for ls command."
+          echo "Attempting to upload Split APKS (unsigned) artifact."
+          echo "Split APKS Path: ${{ github.workspace }}/app_bundle_split_unsigned.apks"
+          ls -lh ${{ github.workspace }}/app_bundle_split_unsigned.apks || echo "Split APKS file (unsigned) not found at path for ls command."
         shell: bash
 
-      - name: Upload Split APKS for debugging
+      - name: Upload Split APKS (unsigned) for debugging
         uses: actions/upload-artifact@v4
         with:
-          name: android-split-apks-debug-${{ github.ref_name }}
-          path: app_bundle_split.apks # This path is relative to GITHUB_WORKSPACE
+          name: android-split-apks-unsigned-debug-${{ github.ref_name }}
+          path: app_bundle_split_unsigned.apks # This path is relative to GITHUB_WORKSPACE
           if-no-files-found: error
       
       - name: Debug after Upload Split APKS
-        run: echo "Upload Split APKS artifact step finished."
+        run: echo "Upload Split APKS (unsigned) artifact step finished."
         shell: bash
 
       - name: Build Universal APK (unsigned) from AAB using bundletool
@@ -751,9 +751,9 @@ jobs:
       - name: Create directory for extracted APKs, extract, and set paths
         id: extract_apk_files 
         run: |
-          echo "Extracting Split APKs (these will be unsigned with the new strategy)..."
+          echo "Extracting Split APKs from app_bundle_split_unsigned.apks (these should be unsigned)..."
           mkdir -p extracted_split_apks
-          unzip -o app_bundle_split.apks -d extracted_split_apks # app_bundle_split.apks is from build_split_apks step
+          unzip -o app_bundle_split_unsigned.apks -d extracted_split_apks # Use the unsigned APKS file
           echo "Contents of extracted_split_apks:"
           ls -R extracted_split_apks/
           
@@ -777,6 +777,42 @@ jobs:
           if [ -n "$APK_X86_64" ]; then echo "apk_x86_64_path=$APK_X86_64" >> $GITHUB_OUTPUT; else echo "::warning::x86_64 APK not found in extracted_split_apks"; echo "apk_x86_64_path=" >> $GITHUB_OUTPUT; fi
         shell: bash
 
+      - name: Sign armeabi-v7a APK (apksigner)
+        id: sign_armeabi_v7a_apk
+        if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' && steps.extract_apk_files.outputs.apk_armeabi_v7a_path != null
+        run: |
+          echo "Signing the armeabi-v7a APK with apksigner..."
+          APKSIGNER_PATH="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)/apksigner"
+          UNSIGNED_APK_PATH="${{ steps.extract_apk_files.outputs.apk_armeabi_v7a_path }}"
+          SIGNED_APK_PATH="libretv-${{ github.ref_name }}-android-armeabi-v7a.apk"
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}"
+
+          if [ ! -f "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned armeabi-v7a APK file not found at: $UNSIGNED_APK_PATH. This should not happen if the 'if' condition of the step worked."
+            # Output empty path to prevent upload of non-existent file
+            echo "signed_apk_path=" >> $GITHUB_OUTPUT
+            exit 1 # Fail the step if file is not found despite 'if'
+          fi
+          
+          echo "Using apksigner at: $APKSIGNER_PATH"
+          echo "Input (unsigned) APK: $UNSIGNED_APK_PATH"
+          echo "Output (signed) APK: $SIGNED_APK_PATH"
+          
+          "$APKSIGNER_PATH" sign \
+            --verbose \
+            --ks "$KEYSTORE_FILE" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$SIGNED_APK_PATH" \
+            "$UNSIGNED_APK_PATH"
+          
+          echo "apksigner command executed for armeabi-v7a. Verifying signed APK..."
+          "$APKSIGNER_PATH" verify --print-certs "$SIGNED_APK_PATH"
+          echo "Signed armeabi-v7a APK path: $SIGNED_APK_PATH"
+          echo "signed_apk_path=$SIGNED_APK_PATH" >> $GITHUB_OUTPUT
+        shell: bash
+
       # This step is now effectively for the *signed* universal APK
       - name: Upload Universal APK (from apksigner)
         # Ensure this uses the output from the 'sign_universal_apk' step
@@ -790,57 +826,139 @@ jobs:
           asset_name: libretv-${{ github.ref_name }}-android-universal.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload armeabi-v7a APK (from bundletool) # These will be unsigned
-        if: steps.extract_apk_files.outputs.apk_armeabi_v7a_path != '' && steps.extract_apk_files.outputs.apk_armeabi_v7a_path != null
+      - name: Upload armeabi-v7a APK (signed by apksigner)
+        if: steps.sign_armeabi_v7a_apk.outputs.signed_apk_path != '' && steps.sign_armeabi_v7a_apk.outputs.signed_apk_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.extract_apk_files.outputs.apk_armeabi_v7a_path }}
+          asset_path: ${{ steps.sign_armeabi_v7a_apk.outputs.signed_apk_path }}
           asset_name: libretv-${{ github.ref_name }}-android-armeabi-v7a.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload arm64-v8a APK (from bundletool)
+      - name: Sign arm64-v8a APK (apksigner)
+        id: sign_arm64_v8a_apk
         if: steps.extract_apk_files.outputs.apk_arm64_v8a_path != '' && steps.extract_apk_files.outputs.apk_arm64_v8a_path != null
+        run: |
+          echo "Signing the arm64-v8a APK with apksigner..."
+          APKSIGNER_PATH="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)/apksigner"
+          UNSIGNED_APK_PATH="${{ steps.extract_apk_files.outputs.apk_arm64_v8a_path }}"
+          SIGNED_APK_PATH="libretv-${{ github.ref_name }}-android-arm64-v8a.apk"
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}"
+
+          if [ ! -f "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned arm64-v8a APK file not found at: $UNSIGNED_APK_PATH."
+            echo "signed_apk_path=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          "$APKSIGNER_PATH" sign \
+            --verbose \
+            --ks "$KEYSTORE_FILE" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$SIGNED_APK_PATH" \
+            "$UNSIGNED_APK_PATH"
+          
+          echo "apksigner command executed for arm64-v8a. Verifying signed APK..."
+          "$APKSIGNER_PATH" verify --print-certs "$SIGNED_APK_PATH"
+          echo "Signed arm64-v8a APK path: $SIGNED_APK_PATH"
+          echo "signed_apk_path=$SIGNED_APK_PATH" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Upload arm64-v8a APK (signed by apksigner)
+        if: steps.sign_arm64_v8a_apk.outputs.signed_apk_path != '' && steps.sign_arm64_v8a_apk.outputs.signed_apk_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.extract_apk_files.outputs.apk_arm64_v8a_path }}
+          asset_path: ${{ steps.sign_arm64_v8a_apk.outputs.signed_apk_path }}
           asset_name: libretv-${{ github.ref_name }}-android-arm64-v8a.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload x86 APK (from bundletool)
+      - name: Sign x86 APK (apksigner)
+        id: sign_x86_apk
         if: steps.extract_apk_files.outputs.apk_x86_path != '' && steps.extract_apk_files.outputs.apk_x86_path != null
+        run: |
+          echo "Signing the x86 APK with apksigner..."
+          APKSIGNER_PATH="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)/apksigner"
+          UNSIGNED_APK_PATH="${{ steps.extract_apk_files.outputs.apk_x86_path }}"
+          SIGNED_APK_PATH="libretv-${{ github.ref_name }}-android-x86.apk"
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}"
+
+          if [ ! -f "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned x86 APK file not found at: $UNSIGNED_APK_PATH."
+            echo "signed_apk_path=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          "$APKSIGNER_PATH" sign \
+            --verbose \
+            --ks "$KEYSTORE_FILE" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$SIGNED_APK_PATH" \
+            "$UNSIGNED_APK_PATH"
+          
+          echo "apksigner command executed for x86. Verifying signed APK..."
+          "$APKSIGNER_PATH" verify --print-certs "$SIGNED_APK_PATH"
+          echo "Signed x86 APK path: $SIGNED_APK_PATH"
+          echo "signed_apk_path=$SIGNED_APK_PATH" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Upload x86 APK (signed by apksigner)
+        if: steps.sign_x86_apk.outputs.signed_apk_path != '' && steps.sign_x86_apk.outputs.signed_apk_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.extract_apk_files.outputs.apk_x86_path }}
+          asset_path: ${{ steps.sign_x86_apk.outputs.signed_apk_path }}
           asset_name: libretv-${{ github.ref_name }}-android-x86.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload x86_64 APK (from bundletool)
+      - name: Sign x86_64 APK (apksigner)
+        id: sign_x86_64_apk
         if: steps.extract_apk_files.outputs.apk_x86_64_path != '' && steps.extract_apk_files.outputs.apk_x86_64_path != null
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.extract_apk_files.outputs.apk_x86_64_path }}
-          asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
-          asset_content_type: application/vnd.android.package-archive
+        run: |
+          echo "Signing the x86_64 APK with apksigner..."
+          APKSIGNER_PATH="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n 1)/apksigner"
+          UNSIGNED_APK_PATH="${{ steps.extract_apk_files.outputs.apk_x86_64_path }}"
+          SIGNED_APK_PATH="libretv-${{ github.ref_name }}-android-x86_64.apk"
+          KEYSTORE_FILE="${{ env.SIGNING_KEYSTORE_PATH }}"
 
-      - name: Upload Universal APK (from bundletool)
-        if: steps.extract_universal_apk_file.outputs.universal_apk_path != '' && steps.extract_universal_apk_file.outputs.universal_apk_path != null
+          if [ ! -f "$UNSIGNED_APK_PATH" ]; then
+            echo "::error::Unsigned x86_64 APK file not found at: $UNSIGNED_APK_PATH."
+            echo "signed_apk_path=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          "$APKSIGNER_PATH" sign \
+            --verbose \
+            --ks "$KEYSTORE_FILE" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --ks-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$SIGNED_APK_PATH" \
+            "$UNSIGNED_APK_PATH"
+          
+          echo "apksigner command executed for x86_64. Verifying signed APK..."
+          "$APKSIGNER_PATH" verify --print-certs "$SIGNED_APK_PATH"
+          echo "Signed x86_64 APK path: $SIGNED_APK_PATH"
+          echo "signed_apk_path=$SIGNED_APK_PATH" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Upload x86_64 APK (signed by apksigner)
+        if: steps.sign_x86_64_apk.outputs.signed_apk_path != '' && steps.sign_x86_64_apk.outputs.signed_apk_path != null
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.extract_universal_apk_file.outputs.universal_apk_path }}
-          asset_name: libretv-${{ github.ref_name }}-android-universal.apk
+          asset_path: ${{ steps.sign_x86_64_apk.outputs.signed_apk_path }}
+          asset_name: libretv-${{ github.ref_name }}-android-x86_64.apk
           asset_content_type: application/vnd.android.package-archive
