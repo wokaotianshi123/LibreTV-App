@@ -433,6 +433,17 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
+      - name: List AAB output directory after build
+        if: always() # Run this step even if previous steps fail, to see output
+        run: |
+          echo "Listing contents of src-tauri/mobile/android/app/build/outputs/bundle/"
+          ls -R src-tauri/mobile/android/app/build/outputs/bundle/ || echo "Bundle directory src-tauri/mobile/android/app/build/outputs/bundle/ not found or empty."
+          echo "Listing contents of src-tauri/mobile/android/app/build/outputs/apk/"
+          ls -R src-tauri/mobile/android/app/build/outputs/apk/ || echo "APK directory src-tauri/mobile/android/app/build/outputs/apk/ not found or empty."
+          echo "Listing all of src-tauri/mobile/android/app/build/outputs/"
+          ls -R src-tauri/mobile/android/app/build/outputs/ || echo "Outputs directory src-tauri/mobile/android/app/build/outputs/ not found."
+        shell: bash
+
       - name: Enhanced Debugging before Android Build
         run: |
           echo "--- Enhanced Debugging: Before Android Build ---"
@@ -500,27 +511,18 @@ jobs:
 
       - name: Get AAB Signature Info using bundletool
         run: |
-          # Find the AAB file first
-          AAB_DIR_FOR_VERIFY="src-tauri/mobile/android/app/build/outputs/bundle"
-          AAB_CANDIDATE_1_VERIFY="$AAB_DIR_FOR_VERIFY/universalRelease/app-universal-release.aab"
-          AAB_CANDIDATE_2_VERIFY="$AAB_DIR_FOR_VERIFY/release/app-release.aab"
+          echo "Attempting to find AAB file for verification..."
+          AAB_OUTPUT_DIR_VERIFY="src-tauri/mobile/android/app/build/outputs/bundle"
+          AAB_TO_VERIFY=$(find "$AAB_OUTPUT_DIR_VERIFY" -type f -name "*.aab" -print -quit)
 
-          AAB_TO_VERIFY=""
-          if [ -f "$AAB_CANDIDATE_1_VERIFY" ]; then
-            AAB_TO_VERIFY="$AAB_CANDIDATE_1_VERIFY"
-          elif [ -f "$AAB_CANDIDATE_2_VERIFY" ]; then
-            AAB_TO_VERIFY="$AAB_CANDIDATE_2_VERIFY"
-          fi
-          
           if [ -z "$AAB_TO_VERIFY" ]; then
-            echo "Error: AAB file NOT found at expected locations for verification."
-            echo "Searched for: $AAB_CANDIDATE_1_VERIFY"
-            echo "Searched for: $AAB_CANDIDATE_2_VERIFY"
-            echo "Listing contents of $AAB_DIR_FOR_VERIFY and its subdirectories..."
-            ls -R "$AAB_DIR_FOR_VERIFY" || echo "Bundle directory $AAB_DIR_FOR_VERIFY not found."
+            echo "Error: AAB file NOT found in $AAB_OUTPUT_DIR_VERIFY or its subdirectories for verification."
+            echo "Listing contents of $AAB_OUTPUT_DIR_VERIFY and its subdirectories..."
+            ls -R "$AAB_OUTPUT_DIR_VERIFY" || echo "Bundle directory $AAB_OUTPUT_DIR_VERIFY not found."
             exit 1
           fi
           
+          echo "Found AAB for verification: $AAB_TO_VERIFY"
           echo "Getting signature info from AAB: $AAB_TO_VERIFY using bundletool"
           # bundletool.jar is downloaded in a later step, so we need to ensure it's available here
           # For now, let's assume it's already downloaded or adjust the workflow to download it earlier.
@@ -538,29 +540,22 @@ jobs:
       - name: Check AAB output and set path
         id: check_aab
         run: |
-          AAB_DIR="src-tauri/mobile/android/app/build/outputs/bundle"
-          echo "Looking for AAB in $AAB_DIR..."
-          # Common patterns for release AABs (signed or unsigned by Gradle)
-          # Gradle typically produces app-release.aab (signed) or app-release-unsigned.aab (unsigned)
-          AAB_CANDIDATE_SIGNED_UNIVERSAL="$AAB_DIR/universalRelease/app-universal-release.aab" # If tauri produces this structure
-          AAB_CANDIDATE_SIGNED_RELEASE="$AAB_DIR/release/app-release.aab"
-          AAB_CANDIDATE_UNSIGNED_RELEASE="$AAB_DIR/release/app-release-unsigned.aab"
+          AAB_OUTPUT_DIR="src-tauri/mobile/android/app/build/outputs/bundle"
+          echo "Looking for AAB in $AAB_OUTPUT_DIR and its subdirectories..."
+          
+          # Find any .aab file, prefer release over debug if both somehow exist
+          AAB_PATH=$(find "$AAB_OUTPUT_DIR" -type f -iname "*release*.aab" -print -quit)
+          if [ -z "$AAB_PATH" ]; then
+            AAB_PATH=$(find "$AAB_OUTPUT_DIR" -type f -iname "*.aab" -print -quit)
+          fi
 
-          if [ -f "$AAB_CANDIDATE_UNSIGNED_RELEASE" ]; then
-            AAB_PATH="$AAB_CANDIDATE_UNSIGNED_RELEASE"
-            echo "Found unsigned release AAB: $AAB_PATH"
-          elif [ -f "$AAB_CANDIDATE_SIGNED_RELEASE" ]; then
-            AAB_PATH="$AAB_CANDIDATE_SIGNED_RELEASE"
-            echo "Found signed release AAB: $AAB_PATH"
-          elif [ -f "$AAB_CANDIDATE_SIGNED_UNIVERSAL" ]; then # Less common for default Gradle output
-            AAB_PATH="$AAB_CANDIDATE_SIGNED_UNIVERSAL"
-            echo "Found universal release AAB: $AAB_PATH"
-          else
-            echo "Error: AAB file NOT found at expected locations."
-            echo "Searched for: $AAB_CANDIDATE_1"
-            echo "Searched for: $AAB_CANDIDATE_2"
-            echo "Listing contents of $AAB_DIR and its subdirectories..."
-            ls -R "$AAB_DIR" || echo "Bundle directory $AAB_DIR not found."
+          if [ -z "$AAB_PATH" ]; then
+            echo "Error: AAB file NOT found in $AAB_OUTPUT_DIR or its subdirectories."
+            echo "Listing contents of $AAB_OUTPUT_DIR and its subdirectories..."
+            ls -R "$AAB_OUTPUT_DIR" || echo "Bundle directory $AAB_OUTPUT_DIR not found."
+            # Also list the apk directory as a fallback debug
+            echo "Listing contents of src-tauri/mobile/android/app/build/outputs/apk/ as well..."
+            ls -R src-tauri/mobile/android/app/build/outputs/apk/ || echo "APK directory not found."
             exit 1
           fi
           
