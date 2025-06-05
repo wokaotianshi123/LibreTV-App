@@ -23,18 +23,13 @@ class ImmersiveAndroidPlugin { // A simple class is enough if Rust calls static 
             // Ensure this runs on the UI thread, as UI manipulations must happen there
             activity.runOnUiThread {
                 val window = activity.window
-                // Ensure decor fits system windows is false for edge-to-edge
-                WindowCompat.setDecorFitsSystemWindows(window, false)
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
                     if (enabled) {
-                        windowInsetsController.hide(WindowInsetsCompat.Type.statusBars())
-                        windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
+                        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
                         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     } else {
-                        windowInsetsController.show(WindowInsetsCompat.Type.statusBars())
-                        windowInsetsController.show(WindowInsetsCompat.Type.navigationBars())
+                        windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
                     }
                 } else {
                     var uiOptions = window.decorView.systemUiVisibility

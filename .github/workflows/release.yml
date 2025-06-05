@@ -394,7 +394,7 @@ jobs:
           echo "Overriding Android resources..."
           
           # Override AndroidManifest.xml
-          MANIFEST_OVERRIDE_SRC="src-tauri/android_res_override/AndroidManifest.xml"
+          MANIFEST_OVERRIDE_SRC="src-tauri/res/AndroidManifest.xml"
           MANIFEST_DEST_DIR="src-tauri/gen/android/app/src/main"
           if [ -f "$MANIFEST_OVERRIDE_SRC" ]; then
             mkdir -p "$MANIFEST_DEST_DIR" # Ensure destination exists
@@ -405,7 +405,7 @@ jobs:
           fi
 
           # Override default themes.xml (from values/)
-          DEFAULT_THEMES_OVERRIDE_SRC="src-tauri/android_res_override/values/themes.xml"
+          DEFAULT_THEMES_OVERRIDE_SRC="src-tauri/res/values/themes.xml"
           DEFAULT_THEMES_DEST_DIR="src-tauri/gen/android/app/src/main/res/values"
           if [ -f "$DEFAULT_THEMES_OVERRIDE_SRC" ]; then
             mkdir -p "$DEFAULT_THEMES_DEST_DIR" # Ensure destination exists
@@ -416,7 +416,7 @@ jobs:
           fi
 
           # Override themes.xml for API v30+ (from values-v30/)
-          V30_THEMES_OVERRIDE_SRC="src-tauri/android_res_override/values-v30/themes.xml"
+          V30_THEMES_OVERRIDE_SRC="src-tauri/res/values-v30/themes.xml"
           V30_THEMES_DEST_DIR="src-tauri/gen/android/app/src/main/res/values-v30"
           if [ -f "$V30_THEMES_OVERRIDE_SRC" ]; then
             mkdir -p "$V30_THEMES_DEST_DIR" # Ensure destination exists
