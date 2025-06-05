@@ -306,10 +306,21 @@ jobs:
         run: |
           echo "--- Debug: After Generate App Icons ---"
           echo "Checking Android mipmap dirs (after tauri icon):"
+          # For Tauri v2, icons are typically generated into src-tauri/mobile/android/...
+          # However, the `tauri icon` command might still initially place them in `src-tauri/gen/android`
+          # before `tauri android init` moves/uses them. Let's check both for thoroughness,
+          # prioritizing `src-tauri/mobile/android` if it exists after init.
+          echo "Checking src-tauri/gen/android/app/src/main/res:"
           if [ -d "src-tauri/gen/android/app/src/main/res" ]; then
             find src-tauri/gen/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
           else
             echo "src-tauri/gen/android/app/src/main/res directory not found."
+          fi
+          echo "Checking src-tauri/mobile/android/app/src/main/res (more relevant for v2 final structure):"
+          if [ -d "src-tauri/mobile/android/app/src/main/res" ]; then
+            find src-tauri/mobile/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
+          else
+            echo "src-tauri/mobile/android/app/src/main/res directory not found (this is expected before 'tauri android init')."
           fi
           echo "--- End Debug ---"
         shell: bash
@@ -433,10 +444,37 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
+      - name: Debug Custom and Generated Android Files Before Build
+        run: |
+          echo "--- [DEBUG] Contents of src-tauri/src/android/ (Custom Source) ---"
+          ls -R src-tauri/src/android/
+          echo "--- [DEBUG] Content of custom MainActivity.kt ---"
+          cat src-tauri/src/android/kotlin/com/libretv/app/MainActivity.kt || echo "Custom MainActivity.kt not found at src-tauri/src/android/kotlin/com/libretv/app/MainActivity.kt"
+          echo "--- [DEBUG] Content of custom themes.xml ---"
+          cat src-tauri/src/android/res/values/themes.xml || echo "Custom themes.xml not found at src-tauri/src/android/res/values/themes.xml"
+          echo "--- [DEBUG] Content of custom AndroidManifest.xml ---"
+          cat src-tauri/src/android/AndroidManifest.xml || echo "Custom AndroidManifest.xml not found at src-tauri/src/android/AndroidManifest.xml"
+
+          echo "--- [DEBUG] Contents of src-tauri/mobile/android/app/src/main/ (Generated Project) ---"
+          ls -R src-tauri/mobile/android/app/src/main/
+          TARGET_MAIN_ACTIVITY_KOTLIN="src-tauri/mobile/android/app/src/main/kotlin/com/libretv/app/MainActivity.kt"
+          TARGET_MAIN_ACTIVITY_JAVA="src-tauri/mobile/android/app/src/main/java/com/libretv/app/MainActivity.kt" # Assuming 'com.libretv.app' is the package
+          echo "--- [DEBUG] Content of generated MainActivity.kt (checking Kotlin path) ---"
+          cat $TARGET_MAIN_ACTIVITY_KOTLIN || echo "Generated Kotlin MainActivity.kt not found at $TARGET_MAIN_ACTIVITY_KOTLIN"
+          if [ ! -f $TARGET_MAIN_ACTIVITY_KOTLIN ]; then
+            echo "--- [DEBUG] Content of generated MainActivity.java (checking Java path as fallback) ---"
+            cat $TARGET_MAIN_ACTIVITY_JAVA || echo "Generated Java MainActivity.java not found at $TARGET_MAIN_ACTIVITY_JAVA"
+          fi
+          echo "--- [DEBUG] Content of generated themes.xml from mobile project ---"
+          cat src-tauri/mobile/android/app/src/main/res/values/themes.xml || echo "Generated themes.xml not found in mobile project"
+          echo "--- [DEBUG] Content of generated AndroidManifest.xml from mobile project ---"
+          cat src-tauri/mobile/android/app/src/main/AndroidManifest.xml || echo "Generated AndroidManifest.xml not found in mobile project"
+        shell: bash
+
       - name: Enhanced Debugging before Android Build
         run: |
-          echo "--- Enhanced Debugging: Before Android Build ---"
-          FINAL_MANIFEST="src-tauri/gen/android/app/src/main/AndroidManifest.xml"
+          echo "--- Enhanced Debugging: Before Android Build (Checking final mobile project structure) ---"
+          FINAL_MANIFEST="src-tauri/mobile/android/app/src/main/AndroidManifest.xml"
           if [ -f "$FINAL_MANIFEST" ]; then
             echo "Contents of final AndroidManifest.xml:"
             cat "$FINAL_MANIFEST"
@@ -448,8 +486,8 @@ jobs:
             echo "Error: Final AndroidManifest.xml not found at $FINAL_MANIFEST"
           fi
 
-          echo "Checking a sample mipmap icon file details:"
-          SAMPLE_ICON="src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+          echo "Checking a sample mipmap icon file details (from mobile project):"
+          SAMPLE_ICON="src-tauri/mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
           if [ -f "$SAMPLE_ICON" ]; then
             echo "Details for $SAMPLE_ICON:"
             ls -l "$SAMPLE_ICON"
@@ -458,8 +496,8 @@ jobs:
             echo "Error: Sample icon $SAMPLE_ICON not found."
           fi
           
-          echo "Checking for styles.xml or themes.xml in generated resources:"
-          GENERATED_VALUES_DIR="src-tauri/gen/android/app/src/main/res/values"
+          echo "Checking for styles.xml or themes.xml in generated resources (from mobile project):"
+          GENERATED_VALUES_DIR="src-tauri/mobile/android/app/src/main/res/values"
           if [ -d "$GENERATED_VALUES_DIR" ]; then
             ls -la "$GENERATED_VALUES_DIR"
             if [ -f "$GENERATED_VALUES_DIR/themes.xml" ]; then
@@ -480,18 +518,20 @@ jobs:
       - name: Archive mipmap resources for inspection
         uses: actions/upload-artifact@v4
         with:
-          name: android-mipmap-resources-${{ github.ref_name }}
+          name: android-final-project-files-${{ github.ref_name }}
           path: |
-            src-tauri/gen/android/app/src/main/res/mipmap-*
-            src-tauri/gen/android/app/src/main/AndroidManifest.xml
-            src-tauri/gen/android/app/src/main/res/values/themes.xml
-            src-tauri/gen/android/app/src/main/res/values/styles.xml
-          if-no-files-found: warn # Use warn to not fail the build if a file is missing, but log it
+            src-tauri/mobile/android/app/src/main/res/mipmap-*
+            src-tauri/mobile/android/app/src/main/AndroidManifest.xml
+            src-tauri/mobile/android/app/src/main/res/values/themes.xml
+            src-tauri/mobile/android/app/src/main/res/values/styles.xml
+            src-tauri/mobile/android/app/src/main/kotlin/com/libretv/app/MainActivity.kt
+            src-tauri/mobile/android/app/src/main/java/com/libretv/app/MainActivity.java
+          if-no-files-found: warn
 
       - name: Get AAB Signature Info using bundletool
         run: |
           # Find the AAB file first
-          AAB_DIR_FOR_VERIFY="src-tauri/gen/android/app/build/outputs/bundle"
+          AAB_DIR_FOR_VERIFY="src-tauri/mobile/android/app/build/outputs/bundle" # Changed gen to mobile
           AAB_CANDIDATE_1_VERIFY="$AAB_DIR_FOR_VERIFY/universalRelease/app-universal-release.aab"
           AAB_CANDIDATE_2_VERIFY="$AAB_DIR_FOR_VERIFY/release/app-release.aab"
 
@@ -528,7 +568,7 @@ jobs:
       - name: Check AAB output and set path
         id: check_aab
         run: |
-          AAB_DIR="src-tauri/gen/android/app/build/outputs/bundle"
+          AAB_DIR="src-tauri/mobile/android/app/build/outputs/bundle" # Changed gen to mobile
           echo "Looking for AAB in $AAB_DIR..."
           # Common patterns for release AABs (signed or unsigned by Gradle)
           # Gradle typically produces app-release.aab (signed) or app-release-unsigned.aab (unsigned)
