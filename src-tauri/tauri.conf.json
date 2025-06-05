@@ -27,7 +27,11 @@
   "plugins": {},
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": {
+      "darwin": ["app"],
+      "linux": ["deb", "appimage"],
+      "windows": ["msi", "updater", "nsis"]
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
