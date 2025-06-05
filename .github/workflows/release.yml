@@ -295,7 +295,7 @@ jobs:
           echo "Checking for src-tauri/icons/:"
           ls -la src-tauri/icons/ || echo "src-tauri/icons/ not found or empty."
           echo "Checking for existing Android mipmap dirs (before tauri icon):"
-          ls -R src-tauri/mobile/android/app/src/main/res/mipmap* || echo "No mipmap directories found yet in src-tauri/mobile/android/app/src/main/res/"
+          ls -R src-tauri/gen/android/app/src/main/res/mipmap* || echo "No mipmap directories found yet in src-tauri/gen/android/app/src/main/res/"
           echo "--- End Debug ---"
         shell: bash
 
@@ -306,10 +306,10 @@ jobs:
         run: |
           echo "--- Debug: After Generate App Icons ---"
           echo "Checking Android mipmap dirs (after tauri icon):"
-          if [ -d "src-tauri/mobile/android/app/src/main/res" ]; then
-            find src-tauri/mobile/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
+          if [ -d "src-tauri/gen/android/app/src/main/res" ]; then
+            find src-tauri/gen/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
           else
-            echo "src-tauri/mobile/android/app/src/main/res directory not found."
+            echo "src-tauri/gen/android/app/src/main/res directory not found."
           fi
           echo "--- End Debug ---"
         shell: bash
@@ -321,15 +321,12 @@ jobs:
           echo "Listing src-tauri/ (before init):"
           ls -la src-tauri/ || echo "src-tauri directory not found before init"
           
-          echo "Deleting existing src-tauri/gen/android directory if it exists (old v1 path, good for cleanup)..."
+          echo "Ensuring a clean state by deleting potential old generated directories..."
           rm -rf src-tauri/gen/android
-          echo "Deleting existing src-tauri/mobile/android directory if it exists (v2 path, to ensure fresh init)..."
           rm -rf src-tauri/mobile/android
           
-          echo "Listing src-tauri/ (after potential rm, before init):"
+          echo "Listing src-tauri/ (after rm, before init):"
           ls -la src-tauri/
-          echo "Listing src-tauri/mobile/ (after potential rm, before init - should not exist or be empty):"
-          ls -la src-tauri/mobile/ || echo "src-tauri/mobile/ directory not found or is empty as expected."
           
           echo "Verifying NDK environment variables before init (NDK_HOME should be globally set now)..."
           echo "ANDROID_NDK_HOME is: $ANDROID_NDK_HOME"
@@ -343,20 +340,17 @@ jobs:
           echo "Listing src-tauri/ (after init):"
           ls -la src-tauri/ || echo "src-tauri directory not found after init"
           
-          echo "Checking for src-tauri/mobile/ and src-tauri/mobile/android/ (after init):"
-          if [ -d "src-tauri/mobile" ]; then
-            echo "src-tauri/mobile/ directory exists. Listing contents:"
-            ls -la src-tauri/mobile/
-            if [ -d "src-tauri/mobile/android" ]; then
-              echo "src-tauri/mobile/android directory exists. Recursively listing all subdirectories and their contents:"
-              find src-tauri/mobile/android -ls
-              echo "Attempting to list src-tauri/mobile/android/app/src/main/java/ specifically:"
-              ls -la src-tauri/mobile/android/app/src/main/java/ || echo "Path to .../app/src/main/java/ not found after init."
-            else
-              echo "src-tauri/mobile/android directory DOES NOT exist after init (but src-tauri/mobile does)."
-            fi
+          echo "Checking for src-tauri/gen/android/ (Tauri CLI output indicates this path is used in CI):"
+          if [ -d "src-tauri/gen/android" ]; then
+            echo "src-tauri/gen/android/ directory exists. Listing contents:"
+            find src-tauri/gen/android -ls
+            echo "Attempting to list src-tauri/gen/android/app/src/main/java/ specifically:"
+            ls -la src-tauri/gen/android/app/src/main/java/ || echo "Path to .../app/src/main/java/ not found after init."
           else
-            echo "src-tauri/mobile/ directory DOES NOT exist after init."
+            echo "src-tauri/gen/android/ directory DOES NOT exist after init, which contradicts CLI output."
+          fi
+          echo "Also checking for src-tauri/mobile/android/ (expected v2 path):"
+          ls -la src-tauri/mobile/android/ || echo "src-tauri/mobile/android/ directory not found."
           fi
 
           if [ $INIT_EXIT_CODE -ne 0 ]; then
@@ -370,11 +364,11 @@ jobs:
       - name: Debug after Post-Init Generate App Icons
         run: |
           echo "--- Debug: After Post-Init Generate App Icons ---"
-          echo "Checking Android mipmap dirs (after post-init tauri icon):"
-          if [ -d "src-tauri/mobile/android/app/src/main/res" ]; then
-            find src-tauri/mobile/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
+          echo "Checking Android mipmap dirs (after post-init tauri icon, expecting in gen/android based on CLI output):"
+          if [ -d "src-tauri/gen/android/app/src/main/res" ]; then
+            find src-tauri/gen/android/app/src/main/res/ -type d -name "mipmap*" -print -exec ls -la {} \;
           else
-            echo "src-tauri/mobile/android/app/src/main/res directory not found."
+            echo "src-tauri/gen/android/app/src/main/res directory not found."
           fi
           echo "--- End Debug ---"
         shell: bash
@@ -436,18 +430,18 @@ jobs:
       - name: List AAB output directory after build
         if: always() # Run this step even if previous steps fail, to see output
         run: |
-          echo "Listing contents of src-tauri/mobile/android/app/build/outputs/bundle/"
-          ls -R src-tauri/mobile/android/app/build/outputs/bundle/ || echo "Bundle directory src-tauri/mobile/android/app/build/outputs/bundle/ not found or empty."
-          echo "Listing contents of src-tauri/mobile/android/app/build/outputs/apk/"
-          ls -R src-tauri/mobile/android/app/build/outputs/apk/ || echo "APK directory src-tauri/mobile/android/app/build/outputs/apk/ not found or empty."
-          echo "Listing all of src-tauri/mobile/android/app/build/outputs/"
-          ls -R src-tauri/mobile/android/app/build/outputs/ || echo "Outputs directory src-tauri/mobile/android/app/build/outputs/ not found."
+          echo "Listing contents of src-tauri/gen/android/app/build/outputs/bundle/ (based on CLI output path)"
+          ls -R src-tauri/gen/android/app/build/outputs/bundle/ || echo "Bundle directory src-tauri/gen/android/app/build/outputs/bundle/ not found or empty."
+          echo "Listing contents of src-tauri/gen/android/app/build/outputs/apk/ (based on CLI output path)"
+          ls -R src-tauri/gen/android/app/build/outputs/apk/ || echo "APK directory src-tauri/gen/android/app/build/outputs/apk/ not found or empty."
+          echo "Listing all of src-tauri/gen/android/app/build/outputs/ (based on CLI output path)"
+          ls -R src-tauri/gen/android/app/build/outputs/ || echo "Outputs directory src-tauri/gen/android/app/build/outputs/ not found."
         shell: bash
 
       - name: Enhanced Debugging before Android Build
         run: |
-          echo "--- Enhanced Debugging: Before Android Build ---"
-          FINAL_MANIFEST="src-tauri/mobile/android/app/src/main/AndroidManifest.xml"
+          echo "--- Enhanced Debugging: Before Android Build (checking paths based on CLI output) ---"
+          FINAL_MANIFEST="src-tauri/gen/android/app/src/main/AndroidManifest.xml"
           if [ -f "$FINAL_MANIFEST" ]; then
             echo "Contents of final AndroidManifest.xml:"
             cat "$FINAL_MANIFEST"
@@ -460,7 +454,7 @@ jobs:
           fi
 
           echo "Checking a sample mipmap icon file details:"
-          SAMPLE_ICON="src-tauri/mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+          SAMPLE_ICON="src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
           if [ -f "$SAMPLE_ICON" ]; then
             echo "Details for $SAMPLE_ICON:"
             ls -l "$SAMPLE_ICON"
@@ -470,7 +464,7 @@ jobs:
           fi
           
           echo "Checking for styles.xml or themes.xml in generated resources:"
-          GENERATED_VALUES_DIR="src-tauri/mobile/android/app/src/main/res/values"
+          GENERATED_VALUES_DIR="src-tauri/gen/android/app/src/main/res/values"
           if [ -d "$GENERATED_VALUES_DIR" ]; then
             ls -la "$GENERATED_VALUES_DIR"
             if [ -f "$GENERATED_VALUES_DIR/themes.xml" ]; then
@@ -493,12 +487,14 @@ jobs:
         with:
           name: android-generated-project-files-${{ github.ref_name }}
           path: |
-            src-tauri/mobile/android/app/src/main/AndroidManifest.xml
-            src-tauri/mobile/android/app/src/main/res/values/themes.xml
-            src-tauri/mobile/android/app/src/main/res/values/styles.xml
-            src-tauri/mobile/android/app/src/main/java/**/MainActivity.kt
-            src-tauri/mobile/android/app/build.gradle.kts
-            src-tauri/mobile/android/build.gradle.kts
+            src-tauri/gen/android/app/src/main/AndroidManifest.xml
+            src-tauri/gen/android/app/src/main/res/values/themes.xml
+            src-tauri/gen/android/app/src/main/res/values/styles.xml
+            src-tauri/gen/android/app/src/main/java/**/MainActivity.kt
+            src-tauri/gen/android/app/build.gradle.kts
+            src-tauri/gen/android/build.gradle.kts
+            src-tauri/gen/android/settings.gradle.kts
+            src-tauri/gen/android/local.properties
           if-no-files-found: warn # Use warn to not fail the build if a file is missing, but log it
 
       - name: Archive Mipmap Resources (for icon check)
@@ -506,13 +502,13 @@ jobs:
         with:
           name: android-mipmap-resources-${{ github.ref_name }}
           path: |
-            src-tauri/mobile/android/app/src/main/res/mipmap-*
+            src-tauri/gen/android/app/src/main/res/mipmap-*
           if-no-files-found: warn # Use warn to not fail the build if a file is missing, but log it
 
       - name: Get AAB Signature Info using bundletool
         run: |
-          echo "Attempting to find AAB file for verification..."
-          AAB_OUTPUT_DIR_VERIFY="src-tauri/mobile/android/app/build/outputs/bundle"
+          echo "Attempting to find AAB file for verification (based on CLI output path)..."
+          AAB_OUTPUT_DIR_VERIFY="src-tauri/gen/android/app/build/outputs/bundle" # Adjusted path
           AAB_TO_VERIFY=$(find "$AAB_OUTPUT_DIR_VERIFY" -type f -name "*.aab" -print -quit)
 
           if [ -z "$AAB_TO_VERIFY" ]; then
@@ -540,8 +536,8 @@ jobs:
       - name: Check AAB output and set path
         id: check_aab
         run: |
-          AAB_OUTPUT_DIR="src-tauri/mobile/android/app/build/outputs/bundle"
-          echo "Looking for AAB in $AAB_OUTPUT_DIR and its subdirectories..."
+          AAB_OUTPUT_DIR="src-tauri/gen/android/app/build/outputs/bundle" # Adjusted path
+          echo "Looking for AAB in $AAB_OUTPUT_DIR and its subdirectories (based on CLI output path)..."
           
           # Find any .aab file, prefer release over debug if both somehow exist
           AAB_PATH=$(find "$AAB_OUTPUT_DIR" -type f -iname "*release*.aab" -print -quit)
@@ -554,8 +550,8 @@ jobs:
             echo "Listing contents of $AAB_OUTPUT_DIR and its subdirectories..."
             ls -R "$AAB_OUTPUT_DIR" || echo "Bundle directory $AAB_OUTPUT_DIR not found."
             # Also list the apk directory as a fallback debug
-            echo "Listing contents of src-tauri/mobile/android/app/build/outputs/apk/ as well..."
-            ls -R src-tauri/mobile/android/app/build/outputs/apk/ || echo "APK directory not found."
+            echo "Listing contents of src-tauri/gen/android/app/build/outputs/apk/ as well (based on CLI output path)..."
+            ls -R src-tauri/gen/android/app/build/outputs/apk/ || echo "APK directory not found."
             exit 1
           fi
           
