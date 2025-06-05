@@ -16,7 +16,8 @@
         "resizable": true,
         "fullscreen": true,
         "decorations": false,
-        "maximized": true
+        "maximized": true,
+        "titleBarStyle": "transparent"
       }
     ],
     "security": {
