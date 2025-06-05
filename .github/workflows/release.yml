@@ -341,6 +341,11 @@ jobs:
           ls -la src-tauri/gen/ || echo "src-tauri/gen still not found"
           echo "Listing src-tauri/gen/android/app/src/main/java/com/libretv/app (after potential rm, before init - this path might not exist yet):" # Modified log message
           ls -la src-tauri/gen/android/app/src/main/java/com/libretv/app || echo "Deep path .../com/libretv/app not found after deep mkdir"
+
+          echo "Cleaning old Android project structures before init..."
+          rm -rf src-tauri/gen/android
+          rm -rf src-tauri/mobile/android
+          echo "Old Android project structures cleaned."
           
           echo "Verifying NDK environment variables before init (NDK_HOME should be globally set now)..."
           echo "ANDROID_NDK_HOME is: $ANDROID_NDK_HOME"
@@ -351,28 +356,34 @@ jobs:
           INIT_EXIT_CODE=$?
           echo "tauri android init command finished with exit code: $INIT_EXIT_CODE"
           
-          echo "Listing src-tauri/ (after init):"
-          ls -la src-tauri/ || echo "src-tauri directory not found after init"
-          
-          echo "Checking for src-tauri/gen/ and src-tauri/gen/android/ (after init):"
-          if [ -d "src-tauri/gen" ]; then
-            echo "src-tauri/gen/ directory exists. Listing contents:"
-            ls -la src-tauri/gen/
-            if [ -d "src-tauri/gen/android" ]; then
-              echo "src-tauri/gen/android directory exists. Recursively listing all subdirectories and their contents:"
-              find src-tauri/gen/android -ls
-              echo "Attempting to list src-tauri/gen/android/app/src/main/java/ specifically:"
-              ls -la src-tauri/gen/android/app/src/main/java/ || echo "Path to .../app/src/main/java/ not found after init."
-            else
-              echo "src-tauri/gen/android directory DOES NOT exist after init (but src-tauri/gen does)."
-            fi
-          else
-            echo "src-tauri/gen/ directory DOES NOT exist after init."
-          fi
-
           if [ $INIT_EXIT_CODE -ne 0 ]; then
             echo "Error: tauri android init command failed with exit code $INIT_EXIT_CODE."
+            # Attempt to show more details from the mobile directory if it exists
+            if [ -d "src-tauri/mobile/android" ]; then
+              echo "Listing contents of src-tauri/mobile/android/ for debugging failed init:"
+              ls -R "src-tauri/mobile/android/"
+            else
+              echo "src-tauri/mobile/android/ directory does not exist after failed init."
+            fi
             exit $INIT_EXIT_CODE
+          fi
+
+          echo "Listing src-tauri/ (after init):"
+          ls -la src-tauri/ || echo "src-tauri directory not found after init"
+
+          echo "Checking for AndroidManifest.xml in src-tauri/mobile/android/app/src/main/ after init:"
+          GENERATED_MANIFEST_PATH="src-tauri/mobile/android/app/src/main/AndroidManifest.xml"
+          if [ -f "$GENERATED_MANIFEST_PATH" ]; then
+            echo "AndroidManifest.xml FOUND in mobile project after init."
+            echo "Contents of $GENERATED_MANIFEST_PATH:"
+            cat "$GENERATED_MANIFEST_PATH"
+          else
+            echo "::error:: AndroidManifest.xml NOT FOUND at $GENERATED_MANIFEST_PATH after tauri android init."
+            echo "Listing contents of src-tauri/mobile/android/ (if it exists):"
+            ls -R src-tauri/mobile/android/ || echo "src-tauri/mobile/android/ directory not found."
+            echo "Listing contents of src-tauri/mobile/android/app/src/main/ (if it exists):"
+            ls -R src-tauri/mobile/android/app/src/main/ || echo "src-tauri/mobile/android/app/src/main/ directory not found."
+            exit 1 # Fail the build here if manifest is missing
           fi
 
       - name: Generate App Icons (Post-Init)
