@@ -444,6 +444,16 @@ jobs:
           # NDK_HOME should be globally available from "Set NDK_HOME globally" step
           # Keystore env vars are set at job level or by previous step
 
+      - name: List Build Outputs After Tauri Build
+        run: |
+          echo "--- Listing contents of src-tauri/mobile/android/app/build/outputs/ ---"
+          ls -R src-tauri/mobile/android/app/build/outputs/ || echo "src-tauri/mobile/android/app/build/outputs/ directory not found or empty."
+          echo "--- Specifically listing bundle directory ---"
+          ls -R src-tauri/mobile/android/app/build/outputs/bundle || echo "Bundle directory src-tauri/mobile/android/app/build/outputs/bundle not found."
+          echo "--- Specifically listing apk directory ---"
+          ls -R src-tauri/mobile/android/app/build/outputs/apk || echo "APK directory src-tauri/mobile/android/app/build/outputs/apk not found."
+        shell: bash
+
       - name: Debug Custom and Generated Android Files Before Build
         run: |
           echo "--- [DEBUG] Contents of src-tauri/src/android/ (Custom Source) ---"
