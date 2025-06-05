@@ -1,9 +1,26 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <!-- Customizations removed to test video playback -->
-</resources>
+    <style name="AppTheme.Immersive" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Ensure the activity is fullscreen -->
         <item name="android:windowFullscreen">true</item>
+        <!-- Allow content to draw into display cutout areas (notches) -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- Optional: Set a window background, e.g., transparent or black -->
+        <item name="android:windowBackground">@android:color/transparent</item> 
+        <!-- Hide the system status bar -->
+        <item name="android:statusBarColor" tools:targetApi="l">@android:color/transparent</item>
+        <!-- Hide the navigation bar -->
+        <item name="android:navigationBarColor" tools:targetApi="l">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds" tools:targetApi="l">true</item>
+
+        <!-- For true edge-to-edge, you might also need these in conjunction with system UI visibility flags in code -->
+        <!-- <item name="android:windowTranslucentStatus">true</item> -->
+        <!-- <item name="android:windowTranslucentNavigation">true</item> -->
     </style>
+
+    <!-- Default Application Theme -->
+    <!-- It's good practice to have a default theme for the application tag in AndroidManifest -->
+    <!-- This can be the immersive theme itself, or a more general one if not all activities are immersive -->
+    <style name="AppTheme" parent="AppTheme.Immersive" />
+
 </resources>
