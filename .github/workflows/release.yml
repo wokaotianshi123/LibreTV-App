@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*' # Triggers the workflow on version tags (e.g., v1.0.0, v0.1.2)
+  workflow_dispatch: # 允许手动触发
 
 jobs:
   create_release:
