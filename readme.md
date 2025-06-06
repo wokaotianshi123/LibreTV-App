@@ -57,3 +57,9 @@ LibreTV-App 是一个免费的开源在线视频搜索与观看平台，旨在�
 - **核心框架**: [Tauri 2.0](https://tauri.app/)
 - **前端**: HTML, CSS, JavaScript (Vanilla JS)
 - **UI**: [Tailwind CSS](https://tailwindcss.com/)
+
+
+## ⚠️ 免责声明
+LibreTV-App 仅作为视频搜索工具，不存储、上传或分发任何视频内容。所有视频均来自第三方 API 接口提供的搜索结果。如有侵权内容，请联系相应的内容提供方。
+
+本项目开发者不对使用本项目产生的任何后果负责。使用本项目时，您必须遵守当地的法律法规。
