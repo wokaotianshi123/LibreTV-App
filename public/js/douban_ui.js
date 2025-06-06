@@ -236,7 +236,6 @@ function renderCarouselRow(categoryTitle, tag, type, sort = 'recommend', pageLim
 
 // Depends on: PROXY_URL (global or from config.js), fillAndSearchWithDouban (in this file)
 function renderDoubanCardsAsCarousel(data, carouselTrackElement, type, tagForContext) {
-    console.warn("renderDoubanCardsAsCarousel called. Home page now uses grid. Check if this is still needed.");
     if (!carouselTrackElement) return;
     const fragment = document.createDocumentFragment();
     if (!data || !data.subjects || !Array.isArray(data.subjects) || data.subjects.length === 0) { 

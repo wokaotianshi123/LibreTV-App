@@ -956,6 +956,12 @@ html, body { /* Applied to html as well for full coverage */
 .carousel-container {
     /* Tailwind: overflow-x-auto pb-2 */
     /* Ensures horizontal scrolling and some padding at the bottom for scrollbar */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.carousel-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
 }
 
 .carousel-container::-webkit-scrollbar {

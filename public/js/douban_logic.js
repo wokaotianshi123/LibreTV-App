@@ -179,16 +179,20 @@ async function loadNextBatchOfHomePageTags() {
         }
 
         section.appendChild(titleContainer);
-        const gridContainer = document.createElement('div');
-        gridContainer.classList.add('grid', 'grid-cols-2', 'sm:grid-cols-3', 'md:grid-cols-5', 'lg:grid-cols-6', 'xl:grid-cols-7', '2xl:grid-cols-8', 'gap-2', 'px-1');
-        section.appendChild(gridContainer);
+
+        const carouselContainer = document.createElement('div');
+        carouselContainer.className = 'carousel-container overflow-x-auto pb-2';
+        const carouselTrack = document.createElement('div');
+        carouselTrack.className = 'carousel-track flex space-x-3';
+        carouselContainer.appendChild(carouselTrack);
+        section.appendChild(carouselContainer);
         
         if (bottomSpinner && recommendationsContainer.contains(bottomSpinner)) {
             recommendationsContainer.insertBefore(section, bottomSpinner);
         } else {
             recommendationsContainer.appendChild(section);
         }
-        gridContainer.innerHTML = `<p class="col-span-full text-gray-400 p-4 text-center">正在加载 ${tagConfig.title}...</p>`;
+        carouselTrack.innerHTML = `<div class="text-gray-400 p-4">正在加载 ${tagConfig.title}...</div>`;
 
         let data;
         // let fetchPromise; // fetchPromise will be assigned directly by fetchAndCacheDoubanData
@@ -240,19 +244,18 @@ async function loadNextBatchOfHomePageTags() {
         try {
             // data is already awaited from fetchAndCacheDoubanData
             if (data && data.subjects && data.subjects.length > 0) {
-                gridContainer.innerHTML = ''; 
-                if (typeof renderCategoryGridCards === 'function') { 
-                    renderCategoryGridCards(data, gridContainer); 
+                if (typeof renderDoubanCardsAsCarousel === 'function') {
+                    renderDoubanCardsAsCarousel(data, carouselTrack, tagConfig.type, tagConfig.apiTag);
                 } else {
-                    console.error('renderCategoryGridCards function not found');
-                    gridContainer.innerHTML = `<p class="col-span-full text-red-400 p-4 text-center">UI Error</p>`;
+                    console.error('renderDoubanCardsAsCarousel function not found');
+                    carouselTrack.innerHTML = `<div class="text-red-400 p-4">UI Error</div>`;
                 }
             } else {
-                gridContainer.innerHTML = `<p class="col-span-full text-gray-400 p-4 text-center">${tagConfig.title}: 暂无内容</p>`;
+                carouselTrack.innerHTML = `<div class="text-gray-400 p-4">${tagConfig.title}: 暂无内容</div>`;
             }
         } catch (error) {
             console.error(`处理豆瓣首页数据失败 (Title: ${tagConfig.title}):`, error);
-            gridContainer.innerHTML = `<p class="col-span-full text-red-400 p-4 text-center">❌ 加载 ${tagConfig.title} 失败</p>`;
+            carouselTrack.innerHTML = `<div class="text-red-400 p-4">❌ 加载 ${tagConfig.title} 失败</div>`;
         }
     } // End for loop
     
