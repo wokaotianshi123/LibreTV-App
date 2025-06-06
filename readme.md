@@ -7,18 +7,22 @@ LibreTV-App 是一个免费的在线视频搜索与观看平台。本项目是�
 - **移动端深度优化**：UI 界面特别为移动设备优化适配，提升小屏幕用户体验。
 - **增强的浏览与筛选**：首页采用瀑布流布局展示热门内容，并提供高级类型筛选功能，助您快速发现喜爱内容。
 
+桌面端截图:
 
-<p><strong>桌面端截图：</strong></p>
+![17491822668566-1](https://oss.keyrotate.com/public/images/dcef63b5-174c-4b6e-a9bc-15fefa86c9a0.jpg)
 
-![](https://oss.keyrotate.com/public/images/ba3b8db9-fe4b-41ab-9974-0bad5a42ecd2.jpg)
+![17491823496597-1](https://oss.keyrotate.com/public/images/4b4ee048-7ba6-4136-94e4-3a6e2cd0c53d.jpg)
 
-![](https://oss.keyrotate.com/public/images/18801ecd-ebbc-4965-a76e-d7f8540012b4.jpg)
+![17491824332963-1](https://oss.keyrotate.com/public/images/4667f8e0-43ed-406c-9696-247c91bfa5a8.jpg)
 
-<p><strong>移动端截图：</strong></p>
+![17491824666671-1](https://oss.keyrotate.com/public/images/e88d0dea-48d8-4699-b95b-8d3093146f29.jpg)
 
-<img src="https://oss.keyrotate.com/public/images/b5ea4c07-5e4f-473a-a8f7-36b04995e13c.jpg" alt="移动端截图1" width="300"/>
+移动端截图:
 
-<img src="https://oss.keyrotate.com/public/images/f4250a56-f740-4b61-8f16-43da5872bc79.jpg" alt="移动端截图2" width="300"/>
+<img src="https://oss.keyrotate.com/public/images/c209dbe4-820e-41c8-923a-4246d4005c33.jpg" width="300" />
+<img src="https://oss.keyrotate.com/public/images/ce2605d0-6f2c-4c5b-8b65-cdb7689e2091.jpg" width="300" />
+
+
 
 
 
