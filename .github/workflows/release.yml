@@ -389,42 +389,22 @@ jobs:
           echo "--- End Debug ---"
         shell: bash
 
-      - name: Override Android resources # Renamed for clarity
+      - name: Override Android resources for immersive mode
         run: |
-          echo "Overriding Android resources..."
-          
-          # Override AndroidManifest.xml
-          MANIFEST_OVERRIDE_SRC="src-tauri/res/AndroidManifest.xml"
-          MANIFEST_DEST_DIR="src-tauri/gen/android/app/src/main"
-          if [ -f "$MANIFEST_OVERRIDE_SRC" ]; then
-            mkdir -p "$MANIFEST_DEST_DIR" # Ensure destination exists
-            cp "$MANIFEST_OVERRIDE_SRC" "$MANIFEST_DEST_DIR/AndroidManifest.xml"
-            echo "Copied AndroidManifest.xml to $MANIFEST_DEST_DIR/"
-          else
-            echo "::warning:: Override AndroidManifest.xml not found at $MANIFEST_OVERRIDE_SRC"
-          fi
+          echo "Overriding Android resources for immersive mode..."
+          SOURCE_RES_DIR="src-tauri/mobile/android/app/src/main/res"
+          DEST_RES_DIR="src-tauri/gen/android/app/src/main/res"
 
-          # Override default themes.xml (from values/)
-          DEFAULT_THEMES_OVERRIDE_SRC="src-tauri/res/values/themes.xml"
-          DEFAULT_THEMES_DEST_DIR="src-tauri/gen/android/app/src/main/res/values"
-          if [ -f "$DEFAULT_THEMES_OVERRIDE_SRC" ]; then
-            mkdir -p "$DEFAULT_THEMES_DEST_DIR" # Ensure destination exists
-            cp "$DEFAULT_THEMES_OVERRIDE_SRC" "$DEFAULT_THEMES_DEST_DIR/themes.xml"
-            echo "Copied default themes.xml to $DEFAULT_THEMES_DEST_DIR/"
+          if [ -d "$SOURCE_RES_DIR" ]; then
+            echo "Source resource directory found at $SOURCE_RES_DIR"
+            echo "Copying contents to $DEST_RES_DIR"
+            # Use rsync to copy the contents, which is robust
+            rsync -av --copy-links "$SOURCE_RES_DIR/" "$DEST_RES_DIR/"
+            echo "Resource override complete. Verifying copied files:"
+            find "$DEST_RES_DIR" -ls
           else
-            echo "::warning:: Override default themes.xml not found at $DEFAULT_THEMES_OVERRIDE_SRC"
-          fi
-
-          # Override themes.xml for API v30+ (from values-v30/)
-          V30_THEMES_OVERRIDE_SRC="src-tauri/res/values-v30/themes.xml"
-          V30_THEMES_DEST_DIR="src-tauri/gen/android/app/src/main/res/values-v30"
-          if [ -f "$V30_THEMES_OVERRIDE_SRC" ]; then
-            mkdir -p "$V30_THEMES_DEST_DIR" # Ensure destination exists
-            cp "$V30_THEMES_OVERRIDE_SRC" "$V30_THEMES_DEST_DIR/themes.xml"
-            echo "Copied v30 themes.xml to $V30_THEMES_DEST_DIR/"
-          else
-            # This is not an error, as v30 overrides are optional
-            echo "::debug:: Override for v30 themes.xml not found at $V30_THEMES_OVERRIDE_SRC (this is okay if not specifically targeting v30 with theme overrides)."
+            echo "::error:: Source resource directory for override not found at $SOURCE_RES_DIR"
+            exit 1
           fi
         shell: bash
 
