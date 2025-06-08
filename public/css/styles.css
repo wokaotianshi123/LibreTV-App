@@ -1,3 +1,37 @@
+.window-controls {
+    display: none; /* 默认隐藏，在桌面端通过JS显示 */
+}
+
+.window-control-btn {
+    background: rgba(34, 34, 34, 0.7);
+    border: 1px solid rgba(51, 51, 51, 0.7);
+    border-radius: 4px;
+    padding: 4px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(2px);
+}
+
+.window-control-btn:hover {
+    background: rgba(51, 51, 51, 0.9);
+    border-color: rgba(85, 85, 85, 0.9);
+}
+
+#close-btn:hover {
+    background: rgba(220, 38, 38, 0.8);
+    border-color: rgba(220, 38, 38, 0.8);
+}
+
+.window-control-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
 .close-btn {
     position: absolute;
     top: 12px;

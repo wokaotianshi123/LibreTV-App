@@ -408,6 +408,24 @@ jobs:
           fi
         shell: bash
 
+      - name: Override MainActivity for immersive mode
+        run: |
+          echo "Overriding MainActivity.kt for immersive mode..."
+          SOURCE_ACTIVITY_PATH="src-tauri/mobile/android/app/src/main/java/com/libretv/app/MainActivity.kt"
+          DEST_ACTIVITY_DIR="src-tauri/gen/android/app/src/main/java/com/libretv/app"
+          
+          if [ -f "$SOURCE_ACTIVITY_PATH" ]; then
+            echo "Source MainActivity.kt found. Copying to $DEST_ACTIVITY_DIR"
+            mkdir -p "$DEST_ACTIVITY_DIR"
+            cp "$SOURCE_ACTIVITY_PATH" "$DEST_ACTIVITY_DIR/"
+            echo "MainActivity.kt override complete. Verifying copied file:"
+            ls -l "$DEST_ACTIVITY_DIR/MainActivity.kt"
+          else
+            echo "::error:: Source MainActivity.kt for override not found at $SOURCE_ACTIVITY_PATH"
+            exit 1
+          fi
+        shell: bash
+
       - name: Decode Keystore for apksigner
         run: |
           echo "Decoding Keystore JKS for apksigner..."

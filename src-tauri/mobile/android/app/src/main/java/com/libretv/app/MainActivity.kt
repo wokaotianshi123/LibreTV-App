@@ -3,9 +3,7 @@ package com.libretv.app
 import android.os.Bundle
 import androidx.core.view.WindowCompat
 
-import app.tauri.plugin.WryActivity
-
-class MainActivity : WryActivity() {
+class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     
