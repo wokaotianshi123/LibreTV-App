@@ -275,6 +275,17 @@ async function loadNextBatchOfHomePageTags() {
         }
     }
     window.isLoadingHomePageItems = false;
+
+    // Check if content is scrollable after loading. If not, and more tags exist, load more.
+    // This fixes the issue on large screens where initial content doesn't fill the viewport.
+    // Use a timeout to allow the DOM to update before checking the height.
+    setTimeout(() => {
+        const isScrollable = document.documentElement.scrollHeight > document.documentElement.clientHeight;
+        if (!isScrollable && !window.noMoreHomePageTags && !window.isLoadingHomePageItems) {
+            console.log("Content is not scrollable, loading next batch of home page tags...");
+            loadNextBatchOfHomePageTags();
+        }
+    }, 100); // 100ms delay should be enough for rendering
 }
 
 function initHomePageDoubanContent() {
@@ -850,29 +861,39 @@ async function loadMoreCategoryItems(isInitialLoad = false) {
     }
 }
 
-window.addEventListener('scroll', () => {
+function handleScroll() {
+    // Use documentElement for better compatibility across browsers/platforms
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    const scrollHeight = document.documentElement.scrollHeight;
+    const clientHeight = document.documentElement.clientHeight;
+
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 300;
+
+    if (!isNearBottom) return;
+
     const categoryViewPage = document.getElementById('page-category-view');
-    const homePage = document.getElementById('page-home'); 
+    const homePage = document.getElementById('page-home');
+    const filterPage = document.getElementById('page-filter');
 
     if (categoryViewPage && !categoryViewPage.classList.contains('hidden')) {
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 300) { 
-            loadMoreCategoryItems(false); 
-        }
+        loadMoreCategoryItems(false);
     } else if (homePage && !homePage.classList.contains('hidden') && localStorage.getItem('doubanEnabled') === 'true') {
         if (!window.isLoadingHomePageItems && !window.noMoreHomePageTags) {
             const recommendationsContainer = document.getElementById('douban-recommendations-container');
-            if (recommendationsContainer && recommendationsContainer.offsetParent !== null) { 
-                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) { 
-                    loadNextBatchOfHomePageTags();
-                }
+            if (recommendationsContainer && recommendationsContainer.offsetParent !== null) {
+                loadNextBatchOfHomePageTags();
             }
         }
-    } else if (document.getElementById('page-filter') && !document.getElementById('page-filter').classList.contains('hidden')) { 
+    } else if (filterPage && !filterPage.classList.contains('hidden')) {
         if (typeof handleSearchPageScroll === 'function') {
             handleSearchPageScroll();
         }
     }
-});
+}
+
+// Listen on both window and document to maximize compatibility
+window.addEventListener('scroll', handleScroll, { passive: true });
+document.addEventListener('scroll', handleScroll, { passive: true });
 
 function showTagManageModal() { 
     console.warn("showTagManageModal called - UI for this needs to be ensured or created.");
