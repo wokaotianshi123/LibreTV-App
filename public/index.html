@@ -17,25 +17,6 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="page-bg text-white flex flex-col min-h-screen">
-    <!-- 窗口控制按钮 (仅在桌面端显示) -->
-    <div id="window-controls" class="window-controls fixed top-2 right-2 flex space-x-2 z-50">
-        <button id="minimize-btn" class="window-control-btn" title="最小化">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-        </button>
-        <button id="maximize-btn" class="window-control-btn" title="最大化">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            </svg>
-        </button>
-        <button id="close-btn" class="window-control-btn" title="关闭">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        </button>
-    </div>
     <!-- Main Content Area -->
     <main class="flex-grow pb-16"> <!-- pb-16 to make space for fixed bottom nav -->
         <!-- Tab Content: Home -->
@@ -526,9 +507,6 @@
 
     <!-- 版本检测脚本 -->
     <script src="js/version-check.js"></script>
-
-    <!-- 窗口控制按钮脚本 -->
-    <script src="js/window_controls.js"></script>
 
     <!-- 弹窗显示脚本 -->
     <script>
